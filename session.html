@@ -151,35 +151,57 @@
             sessionTitle.innerText = "Neck & Shoulder Relief";
         }
 
-        // เริ่มจับท่าทางจาก Python API ทันทีที่โหลดหน้าเสร็จ
-        window.addEventListener('load', () => {
-            fetch('http://localhost:5000/api/start_pose', {
-                    method: 'POST'
-                })
-                .catch(err => console.error("Error starting AI pose:", err));
-        });
-
         // --- Core Logic: Timer & Breathing State ---
+        let prepTimeLeft = 3; // ตั้งเวลาเตรียมตัวก่อนเริ่ม (วินาที) ปรับได้ตามต้องการ
+        let isPrepPhase = true; // สถานะบอกว่ากำลังอยู่ในช่วงเตรียมตัว
+
         let totalTimeLeft = 18;
         let breathTimer = 5;
-        let breathState = 'INHALE'; // สถานะเริ่มต้น: หายใจเข้า 5 วิ -> กลั้น 8 วิ -> ออก 5 วิ
+        let breathState = 'INHALE';
 
         const timerDisplay = document.getElementById('timerDisplay');
         const activeView = document.getElementById('activeSessionView');
         const successView = document.getElementById('successSessionView');
 
-        // DOM Elements สำหรับวงล้อหายใจ
         const breathingLabel = document.getElementById('breathingLabel');
         const breathingCircle = document.getElementById('breathingCircle');
         const breathingTimerDisplay = document.getElementById('breathingTimerDisplay');
 
-        // ฟังก์ชันช่วยอัปเดตสไตล์ของวงกลมให้ดูเนียนตา
         function updateCircleUI(scale, colorClass) {
             breathingCircle.style.transform = `scale(${scale})`;
             breathingCircle.className = `w-48 h-48 md:w-56 md:h-56 rounded-full border-[12px] ${colorClass} flex items-center justify-center transition-all duration-1000 ease-in-out shadow-lg bg-white`;
         }
 
+        // เซ็ตหน้าจอตอนโหลดให้เป็นโหมด "GET READY"
+        breathingLabel.innerText = "GET READY";
+        breathingTimerDisplay.innerText = prepTimeLeft;
+        updateCircleUI(1.0, 'border-kaya-grayDark'); // วงกลมสีเทาตอนเตรียมตัว
+
         const countdown = setInterval(() => {
+            // --- เฟสที่ 1: นับถอยหลังเตรียมตัว ---
+            if (isPrepPhase) {
+                prepTimeLeft--;
+                breathingTimerDisplay.innerText = prepTimeLeft;
+
+                // เมื่อหมดเวลาเตรียมตัว
+                if (prepTimeLeft <= 0) {
+                    isPrepPhase = false; // จบเฟสเตรียมตัว
+
+                    // ยิง API สั่งให้กล้อง Python เริ่มทำงาน (ย้ายการเรียก API มาไว้ตรงนี้)
+                    fetch('http://localhost:5000/api/start_pose', {
+                            method: 'POST'
+                        })
+                        .catch(err => console.error("Error starting AI pose:", err));
+
+                    // เปลี่ยน UI เข้าสู่โหมดหายใจ
+                    breathingLabel.innerText = breathState;
+                    breathingTimerDisplay.innerText = breathTimer;
+                    updateCircleUI(1.1, 'border-kaya-greenLight');
+                }
+                return; // จบลูปของรอบนี้ ไม่ต้องไปรันโค้ดด้านล่าง
+            }
+
+            // --- เฟสที่ 2: เริ่ม Session จริง (โค้ดเดิม) ---
             totalTimeLeft--;
             breathTimer--;
 
@@ -193,19 +215,16 @@
                 if (breathState === 'INHALE') {
                     breathState = 'HOLD';
                     breathTimer = 8;
-                    // คงขนาดวงกลมที่ขยายไว้ และเปลี่ยนสีขอบเป็นเหลืองอ่อน
                     updateCircleUI(1.1, 'border-kaya-yellow');
 
                 } else if (breathState === 'HOLD') {
                     breathState = 'EXHALE';
                     breathTimer = 5;
-                    // ย่อวงกลมลง เปลี่ยนสีขอบเป็นเขียวเข้ม
                     updateCircleUI(0.9, 'border-kaya-greenDark');
 
                 } else if (breathState === 'EXHALE') {
                     breathState = 'INHALE';
                     breathTimer = 5;
-                    // ขยายวงกลมขึ้น เปลี่ยนสีขอบกลับเป็นเขียวอ่อน
                     updateCircleUI(1.1, 'border-kaya-greenLight');
                 }
             }
