@@ -152,41 +152,69 @@
         </div>
     </div>
 
-    <!-- JavaScript สำหรับกล้อง, AI Mock และระบบ Countdown -->
     <script>
         const readyBtn = document.getElementById('readyBtn');
         const loadingElement = document.getElementById('cameraLoading');
         const statusText = document.getElementById('aiStatusText');
 
-        // ปิดหน้าจอโหลด เพราะรูปจะสตรีมมาจาก Python โดยตรง
+        let isButtonLocked = true;
+        let isCalibratingNow = false;
+
         window.addEventListener('load', () => {
             loadingElement.classList.add('hidden');
-            statusText.innerText = '" Ready to align your posture "';
 
-            // เปิดให้กดปุ่ม Ready ได้เลย
-            readyBtn.disabled = false;
-            readyBtn.classList.remove('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
-            readyBtn.classList.add('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
+            // ดึงข้อมูลสถานะจาก Python ทุกๆ 300 มิลลิวินาที
+            setInterval(() => {
+                fetch('http://localhost:5000/api/status')
+                    .then(response => response.json())
+                    .then(data => {
+                        // อัปเดตข้อความแจ้งเตือนจาก Python ลง HTML
+                        if (!isCalibratingNow) {
+                            statusText.innerText = `" ${data.calib_msg} "`;
+
+                            // จัดการสีและการปลดล็อกปุ่ม Ready
+                            if (data.calib_msg === "All set!") {
+                                statusText.classList.replace('text-kaya-statusBlue', 'text-kaya-greenDark');
+                                if (isButtonLocked) {
+                                    isButtonLocked = false;
+                                    readyBtn.disabled = false;
+                                    readyBtn.classList.remove('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
+                                    readyBtn.classList.add('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
+                                }
+                            } else {
+                                statusText.classList.replace('text-kaya-greenDark', 'text-kaya-statusBlue');
+                                if (!isButtonLocked) {
+                                    isButtonLocked = true;
+                                    readyBtn.disabled = true;
+                                    readyBtn.classList.add('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
+                                    readyBtn.classList.remove('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
+                                }
+                            }
+                        } else {
+                            // ช่วงที่กดกำลัง Calibrate นับถอยหลัง ให้โชว์ข้อความจาก Python เลย
+                            statusText.innerText = `" ${data.calib_msg} "`;
+                        }
+                    })
+                    .catch(err => console.error("Error fetching status:", err));
+            }, 300);
         });
 
         // ฟังก์ชันระบบ Countdown และยิง API ไปหา Python
         function startCalibration() {
-            // 1. สั่งให้ Python เริ่มเก็บข้อมูลไหล่
-            fetch('http://localhost:5000/api/calibrate', {
-                    method: 'POST'
-                })
-                .catch(err => console.error("Error connecting to AI:", err));
+            if (isButtonLocked) return;
+            isCalibratingNow = true;
 
-            // 2. ล็อกปุ่ม
+            fetch('http://localhost:5000/api/calibrate', {
+                method: 'POST'
+            });
+
             readyBtn.disabled = true;
             readyBtn.classList.remove('hover:-translate-y-1', 'hover:shadow-xl', 'cursor-pointer', 'hover:bg-kaya-gradEnd');
             readyBtn.classList.add('cursor-wait', 'opacity-90');
 
             let count = 3;
             readyBtn.innerText = count;
-            statusText.innerText = '" Calibrating... Please stay still "';
 
-            // นับถอยหลัง 3 วิ (ให้ตรงกับเวลาฝั่ง Python)
             const countInterval = setInterval(() => {
                 count--;
                 if (count > 0) {
@@ -215,7 +243,7 @@
                     countdownSpan.innerText = redirectCount;
                 } else {
                     clearInterval(redirectInterval);
-                    window.location.href = 'session.html'; // <--- เปลี่ยนไปหน้า session.html แทน dashboard
+                    window.location.href = 'session.html';
                 }
             }, 1000);
         }
