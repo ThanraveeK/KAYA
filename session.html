@@ -1,3 +1,4 @@
+อ
 <!DOCTYPE html>
 <html lang="en" class="scroll-smooth">
 
@@ -42,7 +43,6 @@
 
 <body class="bg-kaya-bg text-gray-800 font-sans antialiased h-screen flex overflow-hidden relative">
 
-    <!-- ฉากหลัง (หน้า Dashboard แบบเบลอๆ) -->
     <aside class="w-72 bg-kaya-greenLight flex flex-col justify-between py-10 px-6 shrink-0 opacity-40">
         <div>
             <div class="mb-12 flex flex-col items-center text-center">
@@ -75,36 +75,47 @@
         </div>
     </main>
 
-    <!-- Pop-up Modal Session -->
     <div class="fixed inset-0 z-50 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center p-6">
 
-        <div class="bg-white w-full max-w-4xl h-[70vh] rounded-[2.5rem] shadow-2xl p-10 flex flex-col relative overflow-hidden transition-all duration-500">
+        <div class="bg-white w-full max-w-5xl h-[75vh] rounded-[2.5rem] shadow-2xl p-10 flex flex-col relative overflow-hidden transition-all duration-500">
 
-            <!-- หน้าต่าง "กำลังทำกายภาพ" -->
             <div id="activeSessionView" class="flex flex-col h-full w-full">
-                <!-- ส่วนหัว -->
-                <div class="flex justify-between items-center mb-8">
-                    <!-- ตั้ง id="sessionTitle" เพื่อให้ Javascript วิ่งมาเปลี่ยนข้อความตรงนี้ -->
+                <div class="flex justify-between items-center mb-6">
                     <h2 id="sessionTitle" class="text-3xl md:text-4xl font-sans font-bold text-kaya-greenDark tracking-wide">
                         Loading...
                     </h2>
                     <span id="timerDisplay" class="text-3xl md:text-4xl font-sans font-bold text-kaya-grayDark">
-                        02:00
+                        00:18
                     </span>
                 </div>
 
-                <div class="flex-1 rounded-3xl flex items-center justify-center bg-gray-100 overflow-hidden relative">
-                    <img src="http://localhost:5000/video_feed" class="absolute inset-0 w-full h-full object-cover" alt="AI Session Feed">
+                <div class="flex-1 flex flex-col md:flex-row gap-8 mb-8 min-h-0">
+
+                    <div class="flex-1 rounded-3xl flex flex-col items-center justify-center bg-kaya-bg/40 border border-kaya-gray/30 relative shadow-sm p-6">
+                        <div id="breathingLabel" class="text-2xl md:text-3xl font-sans font-bold text-kaya-greenDark mb-8 tracking-[0.2em] uppercase transition-all duration-300">
+                            INHALE
+                        </div>
+
+                        <div id="breathingCircle" class="w-48 h-48 md:w-56 md:h-56 rounded-full border-[12px] border-kaya-greenLight flex items-center justify-center transition-all duration-1000 ease-in-out shadow-lg bg-white scale-110">
+                            <span id="breathingTimerDisplay" class="text-6xl font-sans font-bold text-kaya-greenDark">
+                                5
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="flex-1 rounded-3xl flex items-center justify-center bg-gray-100 overflow-hidden relative shadow-inner">
+                        <img src="http://localhost:5000/video_feed" class="absolute inset-0 w-full h-full object-cover" alt="AI Session Feed">
+                    </div>
+
                 </div>
 
-                <div class="mt-8 flex justify-center">
+                <div class="flex justify-center shrink-0">
                     <a href="stretch.html" class="bg-kaya-greenDark text-white px-16 py-3 rounded-2xl text-xl font-bold shadow-md hover:shadow-xl hover:-translate-y-1 hover:bg-kaya-gradEnd transition duration-300">
                         Exit
                     </a>
                 </div>
             </div>
 
-            <!-- หน้าต่าง "Success" -->
             <div id="successSessionView" class="hidden flex-col items-center justify-center h-full w-full text-center animate-fade-in">
                 <div class="text-kaya-greenDark mb-8 flex items-end justify-center relative">
                     <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
@@ -129,9 +140,7 @@
         </div>
     </div>
 
-    <!-- สคริปต์ควบคุม Title, Timer และสลับหน้า -->
     <script>
-        // --- โค้ดเดิมของคุณ ---
         const urlParams = new URLSearchParams(window.location.search);
         const sessionType = urlParams.get('type');
         const sessionTitle = document.getElementById('sessionTitle');
@@ -142,7 +151,7 @@
             sessionTitle.innerText = "Neck & Shoulder Relief";
         }
 
-        // --- เพิ่มส่วนนี้: สั่งให้ Python เริ่มจับท่าทางและขึ้นวงล้อหายใจ ทันทีที่โหลดหน้าเสร็จ ---
+        // เริ่มจับท่าทางจาก Python API ทันทีที่โหลดหน้าเสร็จ
         window.addEventListener('load', () => {
             fetch('http://localhost:5000/api/start_pose', {
                     method: 'POST'
@@ -150,24 +159,63 @@
                 .catch(err => console.error("Error starting AI pose:", err));
         });
 
-        // --- โค้ดเดิมของคุณ ---
-        let timeLeft = 18; // ปรับให้สัมพันธ์กับวงจรหายใจ INHALE(5) + HOLD(8) + EXHALE(5) = 18 วิ
+        // --- Core Logic: Timer & Breathing State ---
+        let totalTimeLeft = 18;
+        let breathTimer = 5;
+        let breathState = 'INHALE'; // สถานะเริ่มต้น: หายใจเข้า 5 วิ -> กลั้น 8 วิ -> ออก 5 วิ
 
         const timerDisplay = document.getElementById('timerDisplay');
         const activeView = document.getElementById('activeSessionView');
         const successView = document.getElementById('successSessionView');
 
+        // DOM Elements สำหรับวงล้อหายใจ
+        const breathingLabel = document.getElementById('breathingLabel');
+        const breathingCircle = document.getElementById('breathingCircle');
+        const breathingTimerDisplay = document.getElementById('breathingTimerDisplay');
+
+        // ฟังก์ชันช่วยอัปเดตสไตล์ของวงกลมให้ดูเนียนตา
+        function updateCircleUI(scale, colorClass) {
+            breathingCircle.style.transform = `scale(${scale})`;
+            breathingCircle.className = `w-48 h-48 md:w-56 md:h-56 rounded-full border-[12px] ${colorClass} flex items-center justify-center transition-all duration-1000 ease-in-out shadow-lg bg-white`;
+        }
+
         const countdown = setInterval(() => {
-            timeLeft--;
+            totalTimeLeft--;
+            breathTimer--;
 
-            let minutes = Math.floor(timeLeft / 60);
-            let seconds = timeLeft % 60;
+            // 1. อัปเดตเวลา Session รวม
+            let minutes = Math.floor(totalTimeLeft / 60);
+            let seconds = totalTimeLeft % 60;
+            timerDisplay.innerText = (minutes < 10 ? '0' : '') + minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
 
-            timerDisplay.innerText =
-                (minutes < 10 ? '0' : '') + minutes + ':' +
-                (seconds < 10 ? '0' : '') + seconds;
+            // 2. State Machine สำหรับจังหวะหายใจ
+            if (breathTimer <= 0) {
+                if (breathState === 'INHALE') {
+                    breathState = 'HOLD';
+                    breathTimer = 8;
+                    // คงขนาดวงกลมที่ขยายไว้ และเปลี่ยนสีขอบเป็นเหลืองอ่อน
+                    updateCircleUI(1.1, 'border-kaya-yellow');
 
-            if (timeLeft <= 0) {
+                } else if (breathState === 'HOLD') {
+                    breathState = 'EXHALE';
+                    breathTimer = 5;
+                    // ย่อวงกลมลง เปลี่ยนสีขอบเป็นเขียวเข้ม
+                    updateCircleUI(0.9, 'border-kaya-greenDark');
+
+                } else if (breathState === 'EXHALE') {
+                    breathState = 'INHALE';
+                    breathTimer = 5;
+                    // ขยายวงกลมขึ้น เปลี่ยนสีขอบกลับเป็นเขียวอ่อน
+                    updateCircleUI(1.1, 'border-kaya-greenLight');
+                }
+            }
+
+            // 3. แสดงผลลงบนหน้าจอ
+            breathingLabel.innerText = breathState;
+            breathingTimerDisplay.innerText = breathTimer;
+
+            // 4. จบเซสชัน
+            if (totalTimeLeft <= 0) {
                 clearInterval(countdown);
                 activeView.classList.add('hidden');
                 successView.classList.remove('hidden');
@@ -175,6 +223,7 @@
             }
         }, 1000);
     </script>
+
     <style>
         .animate-fade-in {
             animation: fadeIn 0.8s ease-in-out;
