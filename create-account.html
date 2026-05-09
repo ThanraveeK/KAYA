@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAYA - Create Account</title>
+
+    <!-- ดึงฟอนต์ Cormorant Garamond และ Nunito จาก Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kaya: {
+                            bg: '#faf6eb',
+                            greenLight: '#9fae9a',
+                            greenDark: '#7b8a76',
+                            gradStart: '#9fae9a',
+                            gradEnd: '#607d63',
+                            yellow: '#eddea2',
+                            gray: '#d9d9d9',
+                            grayDark: '#a6a6a6'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Cormorant Garamond"', 'serif'],
+                        sans: ['Nunito', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-kaya-bg text-gray-800 font-sans antialiased selection:bg-kaya-greenLight selection:text-white min-h-screen flex items-center justify-center p-6 overflow-x-hidden">
+
+    <!-- การ์ด Create Account -->
+    <div class="bg-white/90 backdrop-blur-md p-10 rounded-[2.5rem] shadow-2xl shadow-kaya-greenDark/40 w-full max-w-md text-center border border-white relative z-10">
+
+        <!-- ส่วนหัว -->
+        <div class="mb-8 flex flex-col items-center">
+            <h1 class="text-6xl font-serif font-bold tracking-[0.15em] text-transparent bg-clip-text bg-gradient-to-r from-kaya-gradStart to-kaya-gradEnd drop-shadow-sm leading-none">
+                KAYA
+            </h1>
+            <p class="text-[11px] text-kaya-greenLight font-bold mt-1 mb-6">
+                AI-Assisted Rusie Dutton Therapy
+            </p>
+            <h2 class="text-3xl font-serif font-bold text-kaya-greenDark mb-2 mt-2">
+                Begin your wellness journey
+            </h2>
+        </div>
+
+        <!-- ฟอร์มสร้างบัญชี -->
+        <form action="dashboard.html" method="GET" class="flex flex-col gap-4 mb-6">
+            <input type="text" placeholder="Username" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
+            <input type="email" placeholder="Email address" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
+            <input type="password" placeholder="Password" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
+            <input type="password" placeholder="Confirm Password" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
+
+            <!-- Checkbox ยอมรับเงื่อนไข -->
+            <div class="flex items-start gap-3 mt-2 px-2 text-left">
+                <input type="checkbox" id="terms" required class="mt-1 w-4 h-4 text-kaya-gradEnd bg-kaya-bg border-kaya-gray rounded focus:ring-kaya-greenLight focus:ring-2 cursor-pointer accent-kaya-greenDark">
+                <label for="terms" class="text-sm text-gray-500 font-medium cursor-pointer">
+                    I agree to the 
+                    <!-- เพิ่ม onclick เรียกฟังก์ชันเปิด Pop-up -->
+                    <span onclick="openModal()" class="text-kaya-greenDark hover:underline hover:text-kaya-gradEnd transition-colors">Terms of Service</span> and 
+                    <span onclick="openModal()" class="text-kaya-greenDark hover:underline hover:text-kaya-gradEnd transition-colors">Privacy Policy</span>.
+                </label>
+            </div>
+
+            <a href="login.html" class="w-full mt-4 inline-block bg-gradient-to-r from-kaya-gradStart to-kaya-gradEnd text-kaya-bg px-6 py-4 rounded-full hover:shadow-xl hover:-translate-y-1 transition duration-300 transform shadow-md shadow-kaya-greenDark/40 text-lg tracking-wide font-bold">
+                Create Account
+            </a>
+        </form>
+
+        <div class="text-sm font-medium text-gray-500">
+            Already have an account?
+            <a href="login.html" class="text-kaya-greenDark hover:text-kaya-gradEnd transition duration-300 ml-1 hover:underline">Sign in</a>
+        </div>
+    </div>
+
+    <!-- ================= Pop-up (Modal) Section ================= -->
+    <div id="policyModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 opacity-0 pointer-events-none transition-opacity duration-300">
+
+        <!-- พื้นหลังสีดำเบลอๆ (กดเพื่อปิดได้) -->
+        <div class="absolute inset-0 bg-gray-900/40 backdrop-blur-sm cursor-pointer" onclick="closeModal()"></div>
+
+        <!-- กล่องเนื้อหาด้านใน (เริ่มต้นจะเลื่อนลงไปด้านล่างนิดนึง translate-y-8) -->
+        <div id="modalContent" class="relative w-full max-w-lg bg-white p-8 sm:p-10 rounded-[2.5rem] shadow-2xl transform translate-y-8 transition-transform duration-300 max-h-[85vh] overflow-y-auto custom-scrollbar">
+
+            <!-- ปุ่ม X มุมขวาบน -->
+            <button onclick="closeModal()" class="absolute top-6 right-6 text-kaya-grayDark hover:text-kaya-greenDark transition-colors">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+
+            <!-- เนื้อหา Privacy Policy -->
+            <h3 class="text-2xl font-serif font-bold text-kaya-greenDark mb-4">Privacy Policy</h3>
+            <ul class="text-left text-sm text-gray-600 space-y-3 mb-8 list-disc pl-5 marker:text-kaya-greenLight">
+                <li>Images are transmitted via a secure, encrypted connection for real-time posture analysis. They are instantly deleted after processing and are strictly never stored in our database.</li>
+                <li>Your health data is kept completely private and will never be shared with third parties.</li>
+            </ul>
+
+            <!-- เนื้อหา Terms of Service -->
+            <h3 class="text-2xl font-serif font-bold text-kaya-greenDark mb-4">Terms of Service</h3>
+            <ul class="text-left text-sm text-gray-600 space-y-3 list-disc pl-5 marker:text-kaya-greenLight">
+                <li>KAYA is a proactive wellness tool designed for preliminary symptom relief. It is not a substitute for professional medical diagnosis, advice, or treatment.</li>
+                <li>Always stretch within your own physical limits. If you experience any unusual pain or discomfort, stop immediately and consult a physician.</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- ส่วนเขียนคำสั่ง JavaScript ควบคุมการเปิด-ปิด -->
+    <script>
+        function openModal() {
+            const modal = document.getElementById('policyModal');
+            const content = document.getElementById('modalContent');
+
+            // ทำให้มองเห็น (ลบ opacity-0)
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            // แอนิเมชันเลื่อนขึ้น (ลบระยะทางแกน y)
+            content.classList.remove('translate-y-8');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('policyModal');
+            const content = document.getElementById('modalContent');
+
+            // กลับไปซ่อนและเลื่อนลง
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            content.classList.add('translate-y-8');
+        }
+    </script>
+
+    <!-- เติม CSS จัดการ Scrollbar เล็กน้อยให้ดูสวยงาม -->
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #faf6eb;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #9fae9a;
+            border-radius: 10px;
+        }
+        
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #7b8a76;
+        }
+    </style>
+
+</body>
+
+</html>

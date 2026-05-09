@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAYA - Choose Stretch</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kaya: {
+                            bg: '#faf6eb',
+                            greenLight: '#9fae9a',
+                            greenDark: '#7b8a76',
+                            gradStart: '#9fae9a',
+                            gradEnd: '#607d63',
+                            yellow: '#eddea2',
+                            gray: '#d9d9d9',
+                            grayDark: '#a6a6a6',
+                            menuLight: '#faf6eb',
+                            menuDark: '#e9dfb7'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Cormorant Garamond"', 'serif'],
+                        sans: ['Nunito', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-kaya-bg text-gray-800 font-sans antialiased selection:bg-kaya-greenLight selection:text-white h-screen flex overflow-hidden">
+
+    <!-- แถบเมนูด้านซ้าย (Sidebar) -->
+    <aside class="w-72 bg-kaya-greenLight flex flex-col justify-between z-20 py-10 px-6 shrink-0">
+        <div>
+            <!-- โลโก้ KAYA -->
+            <div class="mb-12 flex flex-col items-center text-center">
+                <h1 class="text-6xl font-serif font-bold tracking-[0.15em] text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark drop-shadow-sm leading-none">
+                    KAYA
+                </h1>
+                <p class="text-[11px] text-kaya-menuLight font-bold mt-1">
+                    AI-Assisted Rusie Dutton Therapy
+                </p>
+            </div>
+
+            <!-- เมนู (Navigation) -->
+            <nav class="flex flex-col gap-3">
+                <a href="dashboard.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                    <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z"/></svg>
+                    <span class="text-xl font-bold font-sans">Dashboard</span>
+                </a>
+
+                <!-- สถานะ Active อยู่ที่ปุ่ม Stretch -->
+                <a href="stretch.html" class="flex items-center gap-4 bg-kaya-greenDark px-5 py-3 rounded-xl text-kaya-menuLight transition-all shadow-md">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span class="text-xl font-bold font-sans">Stretch</span>
+                </a>
+
+                <a href="history.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                    <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="text-xl font-bold font-sans">History</span>
+                </a>
+
+                <a href="calibrate.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                    <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span class="text-xl font-bold font-sans">Calibrate</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <a href="account.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span class="text-lg font-bold font-sans">Account</span>
+            </a>
+
+            <a href="login.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <span class="text-lg font-bold font-sans">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- พื้นที่เนื้อหาหลักด้านขวา -->
+    <main class="flex-1 p-10 md:p-12 overflow-y-auto relative w-full flex flex-col">
+
+        <!-- Header (หัวข้อและโปรไฟล์) -->
+        <div class="flex justify-between items-center mb-10">
+            <h2 class="text-3xl md:text-4xl font-serif font-bold text-kaya-greenDark tracking-widest uppercase drop-shadow-sm">
+                WHERE DO YOU NEED RELIEF ?
+            </h2>
+
+            <div class="w-12 h-12 rounded-full border-2 border-kaya-greenDark text-kaya-greenDark flex items-center justify-center bg-transparent cursor-pointer hover:bg-kaya-greenDark hover:text-white transition-colors">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+        </div>
+
+        <!-- กล่องเมนูการ์ด 2 กล่อง -->
+        <div class="flex flex-col md:flex-row gap-10 mt-6 justify-start items-stretch">
+
+            <!-- การ์ด 1: Neck & Shoulder Relief -->
+            <div class="bg-white rounded-[2.5rem] p-10 shadow-2xl shadow-kaya-greenDark/10 flex flex-col items-center justify-between border border-white w-full max-w-sm hover:-translate-y-2 transition duration-300">
+                <h3 class="text-2xl font-sans font-bold text-kaya-greenDark mb-8 text-center">
+                    Neck & Shoulder Relief
+                </h3>
+
+                <!-- จุดใส่รูปภาพ: ให้แก้ไข src="รูปภาพของคุณ.png" ตรงนี้ครับ -->
+                <div class="w-48 h-48 mb-6 flex items-center justify-center text-kaya-grayDark bg-kaya-bg/30 rounded-2xl">
+                    <img src="your-neck-shoulder-img.png" alt="Neck & Shoulder" class="w-full h-full object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <!-- รูป SVG สำรอง (จะแสดงถ้าหาไฟล์รูปคุณไม่เจอ) -->
+                    <svg class="w-24 h-24 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                </div>
+
+                <div class="flex flex-col items-center">
+                    <!-- เวลา -->
+                    <div class="flex items-center gap-2 text-kaya-grayDark mb-6 font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>2 min</span>
+                    </div>
+
+                    <!-- ปุ่ม Start (ลิงก์ไปหน้า session.html) -->
+                    <a href="session.html?type=neck" class="bg-kaya-greenDark text-white px-12 py-3 rounded-2xl text-lg font-bold shadow-md hover:shadow-xl hover:bg-kaya-gradEnd transition duration-300 w-36 text-center">
+                        Start
+                    </a>
+                </div>
+            </div>
+
+            <!-- การ์ด 2: Back & Spine Relief -->
+            <div class="bg-white rounded-[2.5rem] p-10 shadow-2xl shadow-kaya-greenDark/10 flex flex-col items-center justify-between border border-white w-full max-w-sm hover:-translate-y-2 transition duration-300">
+                <h3 class="text-2xl font-sans font-bold text-kaya-greenDark mb-8 text-center">
+                    Back & Spine Relief
+                </h3>
+
+                <!-- จุดใส่รูปภาพ: ให้แก้ไข src="รูปภาพของคุณ.png" ตรงนี้ครับ -->
+                <div class="w-48 h-48 mb-6 flex items-center justify-center text-kaya-grayDark bg-kaya-bg/30 rounded-2xl">
+                    <img src="your-back-spine-img.png" alt="Back & Spine" class="w-full h-full object-contain" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <!-- รูป SVG สำรอง (จะแสดงถ้าหาไฟล์รูปคุณไม่เจอ) -->
+                    <svg class="w-24 h-24 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 6h16M4 12h16m-7 6h7"></path></svg>
+                </div>
+
+                <div class="flex flex-col items-center">
+                    <!-- เวลา -->
+                    <div class="flex items-center gap-2 text-kaya-grayDark mb-6 font-medium">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <span>2 min</span>
+                    </div>
+
+                    <!-- ปุ่ม Start (ลิงก์ไปหน้า session.html) -->
+                    <a href="session.html?type=back" class="bg-kaya-greenDark text-white px-12 py-3 rounded-2xl text-lg font-bold shadow-md hover:shadow-xl hover:bg-kaya-gradEnd transition duration-300 w-36 text-center">
+                        Start
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+</body>
+
+</html>

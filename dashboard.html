@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAYA - Dashboard</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kaya: {
+                            bg: '#faf6eb',
+                            greenLight: '#9fae9a',
+                            greenDark: '#7b8a76',
+                            gradStart: '#9fae9a',
+                            gradEnd: '#607d63',
+                            yellow: '#eddea2',
+                            gray: '#d9d9d9',
+                            grayDark: '#a6a6a6',
+                            menuLight: '#faf6eb',
+                            menuDark: '#e9dfb7'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Cormorant Garamond"', 'serif'],
+                        sans: ['Nunito', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .circle-bg {
+            fill: none;
+            stroke: #d9d9d9;
+            stroke-width: 3.5;
+        }
+        
+        .circle-progress {
+            fill: none;
+            stroke: #9fae9a;
+            stroke-width: 3.5;
+            stroke-linecap: round;
+            stroke-dasharray: 87, 100;
+        }
+    </style>
+</head>
+
+<body class="bg-kaya-bg text-gray-800 font-sans antialiased selection:bg-kaya-greenLight selection:text-white h-screen flex overflow-hidden">
+
+    <!-- แถบเมนูด้านซ้าย -->
+    <aside class="w-72 bg-kaya-greenLight flex flex-col justify-between z-20 py-10 px-6 shrink-0">
+        <div>
+            <div class="mb-12 flex flex-col items-center text-center">
+                <h1 class="text-6xl font-serif font-bold tracking-[0.15em] text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark drop-shadow-sm leading-none">
+                    KAYA
+                </h1>
+                <p class="text-[11px] text-kaya-menuLight font-bold mt-1">
+                    AI-Assisted Rusie Dutton Therapy
+                </p>
+            </div>
+
+            <!-- เมนูทุกลิงก์พร้อมใช้งานแล้ว -->
+            <nav class="flex flex-col gap-3">
+                <a href="dashboard.html" class="flex items-center gap-4 bg-kaya-greenDark px-5 py-3 rounded-xl text-kaya-menuLight transition-all shadow-md">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z"/></svg>
+                    <span class="text-xl font-bold font-sans">Dashboard</span>
+                </a>
+
+                <a href="stretch.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                    <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                    <span class="text-xl font-bold font-sans">Stretch</span>
+                </a>
+
+                <a href="history.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                    <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="text-xl font-bold font-sans">History</span>
+                </a>
+
+                <a href="calibrate.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                    <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span class="text-xl font-bold font-sans">Calibrate</span>
+                </a>
+            </nav>
+        </div>
+
+        <div class="flex flex-col gap-2">
+            <a href="account.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span class="text-lg font-bold font-sans">Account</span>
+            </a>
+
+            <a href="login.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
+                <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                <span class="text-lg font-bold font-sans">Logout</span>
+            </a>
+        </div>
+    </aside>
+
+    <!-- พื้นที่เนื้อหาหลักด้านขวา -->
+    <main class="flex-1 p-10 md:p-12 overflow-y-auto relative w-full">
+        <div class="flex justify-between items-center mb-8">
+            <h2 class="text-4xl font-serif font-bold text-kaya-greenDark tracking-wide drop-shadow-sm">
+                DASHBOARD OVERVIEW
+            </h2>
+            <div class="w-12 h-12 rounded-full border-2 border-kaya-greenDark text-kaya-greenDark flex items-center justify-center bg-transparent cursor-pointer hover:bg-kaya-greenDark hover:text-white transition-colors">
+                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 mb-8 flex flex-col md:flex-row justify-between items-center border border-white">
+            <div class="mb-6 md:mb-0">
+                <h3 class="text-2xl font-sans font-bold text-kaya-greenDark mb-2">
+                    Ready to find your balance today?
+                </h3>
+                <p class="text-kaya-grayDark font-medium text-lg">
+                    Let KAYA monitor your posture while you focus on what<br>matters. We'll remind you when it's time to move.
+                </p>
+            </div>
+
+            <!-- ปรับให้ปุ่มทำแค่สลับสถานะสีเทา/สีเขียว ไม่เปลี่ยนหน้าแล้ว -->
+            <button id="sessionBtn" onclick="toggleSession()" class="bg-kaya-greenDark text-white px-10 py-4 rounded-xl text-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-1 transition duration-300 transform whitespace-nowrap min-w-[200px]">
+                Begin Session
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+            <div class="bg-white rounded-[2.5rem] p-10 shadow-xl shadow-kaya-greenDark/10 flex flex-col items-center justify-center border border-white">
+                <h4 class="text-2xl font-sans font-bold text-kaya-greenDark mb-8">Posture Score</h4>
+                <div class="relative w-64 h-64 mb-8">
+                    <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
+                        <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    </svg>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <span class="text-6xl font-sans font-bold text-gray-800">87%</span>
+                    </div>
+                </div>
+                <p class="text-2xl font-bold text-kaya-greenDark">Great alignment!</p>
+            </div>
+
+            <div class="flex flex-col gap-6">
+                <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 flex items-center gap-8 border border-white h-full">
+                    <div class="w-16 h-16 rounded-full border-4 border-kaya-greenLight text-kaya-greenDark flex items-center justify-center shrink-0">
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-kaya-greenDark mb-1">1 hour 37 min</p>
+                        <p class="text-kaya-grayDark font-medium text-lg">Active Time</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 flex items-center gap-8 border border-white h-full">
+                    <div class="w-16 h-16 text-kaya-greenDark flex items-center justify-center shrink-0">
+                        <svg class="w-14 h-14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4a2 2 0 110 4 2 2 0 010-4zM6 10h12v2h-3v10h-2v-6h-2v6H9V12H6v-2z"></path></svg>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-kaya-greenDark mb-1">7 Times</p>
+                        <p class="text-kaya-grayDark font-medium text-lg">Stretch Time</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 flex items-center gap-8 border border-white h-full">
+                    <div class="w-16 h-16 text-kaya-greenDark flex items-center justify-center shrink-0 relative">
+                        <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
+                        <span class="absolute top-0 right-0 text-lg font-bold">Z</span>
+                    </div>
+                    <div>
+                        <p class="text-2xl font-bold text-kaya-greenDark mb-1">2 Times</p>
+                        <p class="text-kaya-grayDark font-medium text-lg">Snoozed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ฟังก์ชันสลับสีและข้อความปุ่ม Begin / Stop Session
+        function toggleSession() {
+            const btn = document.getElementById('sessionBtn');
+            if (btn.innerText.trim() === 'Begin Session') {
+                btn.innerText = 'Stop Session';
+                btn.classList.remove('bg-kaya-greenDark');
+                btn.classList.add('bg-kaya-grayDark');
+            } else {
+                btn.innerText = 'Begin Session';
+                btn.classList.remove('bg-kaya-grayDark');
+                btn.classList.add('bg-kaya-greenDark');
+            }
+        }
+    </script>
+
+    <!-- ================= เมนูสำหรับทดสอบแจ้งเตือน (มุมขวาล่าง) ================= -->
+    <div class="fixed bottom-8 right-8 z-50 flex flex-col gap-3 items-end">
+        <p class="text-xs font-bold text-kaya-grayDark bg-white px-3 py-1 rounded-full shadow-md mb-1">Test Push Notifications (5s Delay)</p>
+
+        <!-- กรณี 1: Watch Your Screen Distance -> Neck -->
+        <button onclick="schedulePushNotification(0)" class="bg-white border-2 border-kaya-greenLight text-kaya-greenDark px-5 py-2.5 rounded-full shadow-lg hover:bg-kaya-greenLight hover:text-white transition font-bold text-sm w-64 text-left flex justify-between items-center group">
+            <span>🖥️ Screen Distance</span>
+            <span class="opacity-0 group-hover:opacity-100 transition-opacity text-xs">Test</span>
+        </button>
+
+        <!-- กรณี 2: Open Your Chest -> Neck -->
+        <button onclick="schedulePushNotification(1)" class="bg-white border-2 border-kaya-greenLight text-kaya-greenDark px-5 py-2.5 rounded-full shadow-lg hover:bg-kaya-greenLight hover:text-white transition font-bold text-sm w-64 text-left flex justify-between items-center group">
+            <span>🫁 Open Your Chest</span>
+            <span class="opacity-0 group-hover:opacity-100 transition-opacity text-xs">Test</span>
+        </button>
+
+        <!-- กรณี 3: Mindful Break -> Back -->
+        <button onclick="schedulePushNotification(2)" class="bg-white border-2 border-kaya-greenLight text-kaya-greenDark px-5 py-2.5 rounded-full shadow-lg hover:bg-kaya-greenLight hover:text-white transition font-bold text-sm w-64 text-left flex justify-between items-center group">
+            <span>🧘 Mindful Break</span>
+            <span class="opacity-0 group-hover:opacity-100 transition-opacity text-xs">Test</span>
+        </button>
+    </div>
+
+    <!-- Script สำหรับควบคุมการเด้งแจ้งเตือนผ่าน OS -->
+    <script>
+        function toggleSession() {
+            const btn = document.getElementById('sessionBtn');
+            if (btn.innerText.trim() === 'Begin Session') {
+                btn.innerText = 'Stop Session';
+                btn.classList.remove('bg-kaya-greenDark');
+                btn.classList.add('bg-kaya-grayDark');
+            } else {
+                btn.innerText = 'Begin Session';
+                btn.classList.remove('bg-kaya-grayDark');
+                btn.classList.add('bg-kaya-greenDark');
+            }
+        }
+
+        // ข้อมูล 3 กรณี และ URL ที่จะยิงไปเมื่อกดตกลง
+        const pushNotificationsData = [{
+            title: "Watch Your Screen Distance",
+            body: "Your screen is drawing you in. Let's pull your chin back and relax your neck.",
+            url: "session.html?type=neck" // พาไป Neck
+        }, {
+            title: "Open Your Chest",
+            body: "We noticed a slouch. Take a deep breath and roll your shoulders back.",
+            url: "session.html?type=neck" // พาไป Neck
+        }, {
+            title: "Mindful Break",
+            body: "You've been focused for a while. Let's take a quick stretch to stay energized.",
+            url: "session.html?type=back" // พาไป Back
+        }];
+
+        // ฟังก์ชันสั่งยิงแจ้งเตือนทะลุเบราว์เซอร์
+        function schedulePushNotification(index) {
+            // เช็คว่าเบราว์เซอร์รองรับไหม
+            if (!("Notification" in window)) {
+                alert("เบราว์เซอร์ของคุณไม่รองรับ Desktop Notification ครับ");
+                return;
+            }
+
+            // ขออนุญาตผู้ใช้ (ระบบจะเด้งถามมุมซ้ายบนครั้งแรกที่กด)
+            Notification.requestPermission().then(permission => {
+                if (permission === "granted") {
+
+                    const data = pushNotificationsData[index];
+
+                    // แจ้งเตือนเพื่อให้คนทดสอบรู้ตัวและพับจอหนีได้
+                    alert(`✅ ยืนยันคำสั่ง! \nแจ้งเตือน "${data.title}" จะเด้งขึ้นมาในอีก 5 วินาที \nคุณสามารถพับจอย่อแท็บ (Minimize) รอได้เลยครับ!`);
+
+                    // หน่วงเวลา 5 วินาที
+                    setTimeout(() => {
+                        // สร้าง Push Notification 
+                        const notification = new Notification("KAYA 🔔", {
+                            body: data.title + "\n" + data.body,
+                            icon: "https://cdn-icons-png.flaticon.com/512/2950/2950322.png", // ใส่ไอคอนรูปกระดิ่ง
+                            requireInteraction: true // บังคับให้ค้างไว้จนกว่าคนจะกด
+                        });
+
+                        // เหตุการณ์เมื่อผู้ใช้ "คลิก" ที่ตัวแจ้งเตือน
+                        notification.onclick = function(event) {
+                            event.preventDefault();
+                            window.focus(); // สั่งให้เบราว์เซอร์ที่พับไว้เด้งกลับขึ้นมา
+                            window.location.href = data.url; // พาไปหน้า Session แยกตาม URL ที่กำหนด
+                            notification.close(); // ปิดแจ้งเตือนทิ้ง
+                        };
+
+                        // ถ้าผู้ใช้กดกากบาท (Snooze) มันก็จะปิดทิ้งไปเองโดยอัตโนมัติ ไม่ต้องเขียนโค้ดเพิ่มครับ
+                    }, 5000);
+
+                } else {
+                    alert("คุณต้องกด Allow (อนุญาต) แจ้งเตือนตรงมุมซ้ายบนก่อนนะครับ ระบบถึงจะทำงานได้");
+                }
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KAYA - Session</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        kaya: {
+                            bg: '#faf6eb',
+                            greenLight: '#9fae9a',
+                            greenDark: '#7b8a76',
+                            gradStart: '#9fae9a',
+                            gradEnd: '#607d63',
+                            yellow: '#eddea2',
+                            gray: '#d9d9d9',
+                            grayDark: '#a6a6a6',
+                            menuLight: '#faf6eb',
+                            menuDark: '#e9dfb7'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Cormorant Garamond"', 'serif'],
+                        sans: ['Nunito', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+
+<body class="bg-kaya-bg text-gray-800 font-sans antialiased h-screen flex overflow-hidden relative">
+
+    <!-- ฉากหลัง (หน้า Dashboard แบบเบลอๆ) -->
+    <aside class="w-72 bg-kaya-greenLight flex flex-col justify-between py-10 px-6 shrink-0 opacity-40">
+        <div>
+            <div class="mb-12 flex flex-col items-center text-center">
+                <h1 class="text-6xl font-serif font-bold tracking-[0.15em] text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark leading-none">
+                    KAYA
+                </h1>
+                <p class="text-[11px] text-kaya-menuLight font-bold mt-1">
+                    AI-Assisted Rusie Dutton Therapy
+                </p>
+            </div>
+            <nav class="flex flex-col gap-3">
+                <div class="flex items-center gap-4 bg-kaya-greenDark px-5 py-3 rounded-xl text-kaya-menuLight">
+                    <span class="text-xl font-bold font-sans">Dashboard</span>
+                </div>
+            </nav>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-10 md:p-12 relative w-full opacity-40">
+        <h2 class="text-4xl font-serif font-bold text-kaya-greenDark tracking-wide mb-8">
+            DASHBOARD OVERVIEW
+        </h2>
+        <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 mb-8 border border-white h-32"></div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+            <div class="bg-white rounded-[2.5rem] p-10 h-64 border border-white"></div>
+            <div class="flex flex-col gap-6">
+                <div class="bg-white rounded-[2rem] p-8 h-20 border border-white"></div>
+                <div class="bg-white rounded-[2rem] p-8 h-20 border border-white"></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Pop-up Modal Session -->
+    <div class="fixed inset-0 z-50 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center p-6">
+
+        <div class="bg-white w-full max-w-4xl h-[70vh] rounded-[2.5rem] shadow-2xl p-10 flex flex-col relative overflow-hidden transition-all duration-500">
+
+            <!-- หน้าต่าง "กำลังทำกายภาพ" -->
+            <div id="activeSessionView" class="flex flex-col h-full w-full">
+                <!-- ส่วนหัว -->
+                <div class="flex justify-between items-center mb-8">
+                    <!-- ตั้ง id="sessionTitle" เพื่อให้ Javascript วิ่งมาเปลี่ยนข้อความตรงนี้ -->
+                    <h2 id="sessionTitle" class="text-3xl md:text-4xl font-sans font-bold text-kaya-greenDark tracking-wide">
+                        Loading...
+                    </h2>
+                    <span id="timerDisplay" class="text-3xl md:text-4xl font-sans font-bold text-kaya-grayDark">
+                        02:00
+                    </span>
+                </div>
+
+                <div class="flex-1 rounded-3xl flex items-center justify-center text-kaya-gray">
+                    <p class="font-medium text-lg opacity-50 text-kaya-grayDark">[ AI Camera Area ]</p>
+                </div>
+
+                <div class="mt-8 flex justify-center">
+                    <a href="stretch.html" class="bg-kaya-greenDark text-white px-16 py-3 rounded-2xl text-xl font-bold shadow-md hover:shadow-xl hover:-translate-y-1 hover:bg-kaya-gradEnd transition duration-300">
+                        Exit
+                    </a>
+                </div>
+            </div>
+
+            <!-- หน้าต่าง "Success" -->
+            <div id="successSessionView" class="hidden flex-col items-center justify-center h-full w-full text-center animate-fade-in">
+                <div class="text-kaya-greenDark mb-8 flex items-end justify-center relative">
+                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 4a2 2 0 110 4 2 2 0 010-4zM6 10h12v2h-3v10h-2v-6h-2v6H9V12H6v-2z"></path>
+                    </svg>
+                    <svg class="w-16 h-16 absolute -right-6 bottom-4 bg-white rounded-full p-1 shadow-sm" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                        <path stroke="white" stroke-width="2" fill="none" d="M8 12h2l1.5 -3l2 6l1.5 -3h3"></path>
+                    </svg>
+                </div>
+                <h2 class="text-4xl font-sans font-bold text-kaya-greenDark mb-4">
+                    Balance Restored
+                </h2>
+                <p class="text-kaya-grayDark text-lg font-medium mb-12">
+                    Your posture is realigned. You're ready to conquer the day.
+                </p>
+                <a href="dashboard.html" class="bg-kaya-greenDark text-white px-12 py-3 rounded-2xl text-xl font-bold shadow-md hover:shadow-xl hover:-translate-y-1 hover:bg-kaya-gradEnd transition duration-300">
+                    Return to work
+                </a>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- สคริปต์ควบคุม Title, Timer และสลับหน้า -->
+    <script>
+        // --- 1. จัดการข้อความ Title ตามปุ่มที่กดมา ---
+        // ดึงค่า type จาก URL (เช่น session.html?type=back)
+        const urlParams = new URLSearchParams(window.location.search);
+        const sessionType = urlParams.get('type');
+        const sessionTitle = document.getElementById('sessionTitle');
+
+        // เช็คว่าส่งค่าอะไรมา แล้วเปลี่ยนข้อความให้ตรงกัน
+        if (sessionType === 'back') {
+            sessionTitle.innerText = "Back & Spine Relief";
+        } else {
+            sessionTitle.innerText = "Neck & Shoulder Relief"; // ค่าตั้งต้น (Default)
+        }
+
+        // --- 2. จัดการเวลานับถอยหลัง ---
+        let timeLeft = 5; // ทดสอบด้วย 5 วิ (เปลี่ยนเป็น 120 ได้ครับ)
+
+        const timerDisplay = document.getElementById('timerDisplay');
+        const activeView = document.getElementById('activeSessionView');
+        const successView = document.getElementById('successSessionView');
+
+        const countdown = setInterval(() => {
+            timeLeft--;
+
+            let minutes = Math.floor(timeLeft / 60);
+            let seconds = timeLeft % 60;
+
+            timerDisplay.innerText =
+                (minutes < 10 ? '0' : '') + minutes + ':' +
+                (seconds < 10 ? '0' : '') + seconds;
+
+            if (timeLeft <= 0) {
+                clearInterval(countdown);
+                activeView.classList.add('hidden');
+                successView.classList.remove('hidden');
+                successView.classList.add('flex');
+            }
+        }, 1000);
+    </script>
+
+    <style>
+        .animate-fade-in {
+            animation: fadeIn 0.8s ease-in-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+    </style>
+
+</body>
+
+</html>
