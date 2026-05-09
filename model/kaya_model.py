@@ -90,21 +90,14 @@ def generate_frames():
                     calibration_data_x = []
                     current_calib_msg = "Calibration Complete"
 
-            # วาดโครงกระดูกไว้ให้ดู (ลบ text ออกหมดแล้ว)
-            mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
+            # --- เอา mp_drawing.draw_landmarks ออกตรงนี้ ภาพจะไม่มีเส้นบนหน้าและตัวแล้ว ---
 
             # [ระบบเช็คท่าทาง Session]
             current_pose_msg = "" # เคลียร์ข้อความเริ่มต้น
             if breathing_state in ["INHALE", "HOLD"]:
+                # คำนวณจุดเป้าหมายเหมือนเดิม แต่ไม่ต้องวาดเส้นสีน้ำเงินแล้ว
                 target_wrist_x = int((left_shoulder.x + right_shoulder.x) / 2 * w)
                 target_wrist_y = int(left_shoulder.y * h)
-                
-                ls_px = (int(left_shoulder.x * w), int(left_shoulder.y * h))
-                rs_px = (int(right_shoulder.x * w), int(right_shoulder.y * h))
-                
-                cv2.line(frame, ls_px, (target_wrist_x, target_wrist_y), (255, 0, 0), 6)
-                cv2.line(frame, rs_px, (target_wrist_x, target_wrist_y), (255, 0, 0), 6)
-                cv2.circle(frame, (target_wrist_x, target_wrist_y), 15, (255, 0, 0), -1)
 
                 if breathing_state == "HOLD":
                     lw_px = (int(left_wrist.x * w), int(left_wrist.y * h))
@@ -117,7 +110,7 @@ def generate_frames():
                     if dist_left < tolerance and dist_right < tolerance:
                         current_pose_msg = "PERFECT POSTURE!"
                     else:
-                        current_pose_msg = "Push Arms Forward to match Blue Line"
+                        current_pose_msg = "Push Arms Forward to match Blue Line" # (แก้ข้อความเป็นคำแนะนำอื่นได้ตามชอบนะครับ)
 
         # [ระบบจับเวลาลมหายใจของฝั่ง Python]
         if breathing_state != "IDLE":
