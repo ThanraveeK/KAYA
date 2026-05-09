@@ -93,8 +93,8 @@
                     </span>
                 </div>
 
-                <div class="flex-1 rounded-3xl flex items-center justify-center text-kaya-gray">
-                    <p class="font-medium text-lg opacity-50 text-kaya-grayDark">[ AI Camera Area ]</p>
+                <div class="flex-1 rounded-3xl flex items-center justify-center bg-gray-100 overflow-hidden relative">
+                    <img src="http://localhost:5000/video_feed" class="absolute inset-0 w-full h-full object-cover" alt="AI Session Feed">
                 </div>
 
                 <div class="mt-8 flex justify-center">
@@ -131,21 +131,27 @@
 
     <!-- สคริปต์ควบคุม Title, Timer และสลับหน้า -->
     <script>
-        // --- 1. จัดการข้อความ Title ตามปุ่มที่กดมา ---
-        // ดึงค่า type จาก URL (เช่น session.html?type=back)
+        // --- โค้ดเดิมของคุณ ---
         const urlParams = new URLSearchParams(window.location.search);
         const sessionType = urlParams.get('type');
         const sessionTitle = document.getElementById('sessionTitle');
 
-        // เช็คว่าส่งค่าอะไรมา แล้วเปลี่ยนข้อความให้ตรงกัน
         if (sessionType === 'back') {
             sessionTitle.innerText = "Back & Spine Relief";
         } else {
-            sessionTitle.innerText = "Neck & Shoulder Relief"; // ค่าตั้งต้น (Default)
+            sessionTitle.innerText = "Neck & Shoulder Relief";
         }
 
-        // --- 2. จัดการเวลานับถอยหลัง ---
-        let timeLeft = 5; // ทดสอบด้วย 5 วิ (เปลี่ยนเป็น 120 ได้ครับ)
+        // --- เพิ่มส่วนนี้: สั่งให้ Python เริ่มจับท่าทางและขึ้นวงล้อหายใจ ทันทีที่โหลดหน้าเสร็จ ---
+        window.addEventListener('load', () => {
+            fetch('http://localhost:5000/api/start_pose', {
+                    method: 'POST'
+                })
+                .catch(err => console.error("Error starting AI pose:", err));
+        });
+
+        // --- โค้ดเดิมของคุณ ---
+        let timeLeft = 18; // ปรับให้สัมพันธ์กับวงจรหายใจ INHALE(5) + HOLD(8) + EXHALE(5) = 18 วิ
 
         const timerDisplay = document.getElementById('timerDisplay');
         const activeView = document.getElementById('activeSessionView');
@@ -169,7 +175,6 @@
             }
         }, 1000);
     </script>
-
     <style>
         .animate-fade-in {
             animation: fadeIn 0.8s ease-in-out;

@@ -113,7 +113,7 @@
         </p>
 
         <div class="relative w-full max-w-2xl aspect-[4/3] rounded-[2.5rem] border-[12px] border-kaya-greenLight bg-white shadow-xl shadow-kaya-greenDark/10 overflow-hidden mb-8">
-            <video id="webcamVideo" autoplay playsinline class="w-full h-full object-cover transform scale-x-[-1] hidden"></video>
+            <img id="webcamVideo" src="http://localhost:5000/video_feed" class="w-full h-full object-cover" alt="AI Camera Feed">
 
             <div id="cameraLoading" class="absolute inset-0 flex items-center justify-center bg-gray-50 text-kaya-grayDark font-medium">
                 <div class="flex flex-col items-center gap-3">
@@ -154,72 +154,39 @@
 
     <!-- JavaScript สำหรับกล้อง, AI Mock และระบบ Countdown -->
     <script>
-        const videoElement = document.getElementById('webcamVideo');
+        const readyBtn = document.getElementById('readyBtn');
         const loadingElement = document.getElementById('cameraLoading');
         const statusText = document.getElementById('aiStatusText');
-        const readyBtn = document.getElementById('readyBtn');
 
-        // ฟังก์ชันเปิดกล้อง
-        async function startWebcam() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    video: true
-                });
-                videoElement.srcObject = stream;
+        // ปิดหน้าจอโหลด เพราะรูปจะสตรีมมาจาก Python โดยตรง
+        window.addEventListener('load', () => {
+            loadingElement.classList.add('hidden');
+            statusText.innerText = '" Ready to align your posture "';
 
-                videoElement.onloadedmetadata = () => {
-                    loadingElement.classList.add('hidden');
-                    videoElement.classList.remove('hidden');
-                    simulateAIModel();
-                };
-            } catch (error) {
-                console.error("Error accessing webcam:", error);
-                loadingElement.innerHTML = "<span class='text-red-400'>Camera access denied.</span>";
-                statusText.innerText = '" Please allow camera permissions "';
-            }
-        }
+            // เปิดให้กดปุ่ม Ready ได้เลย
+            readyBtn.disabled = false;
+            readyBtn.classList.remove('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
+            readyBtn.classList.add('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
+        });
 
-        // ฟังก์ชันอัปเดต UI 
-        function updateCalibrateState(stateMessage, isReady) {
-            statusText.innerText = `" ${stateMessage} "`;
-
-            if (isReady) {
-                readyBtn.disabled = false;
-                readyBtn.classList.remove('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
-                readyBtn.classList.add('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
-            }
-        }
-
-        // ฟังก์ชันจำลองการทำงาน AI
-        function simulateAIModel() {
-            updateCalibrateState("Analyzing posture...", false);
-
-            setTimeout(() => {
-                updateCalibrateState("Low light detected", false);
-            }, 2000);
-
-            setTimeout(() => {
-                updateCalibrateState("Please move back slightly", false);
-            }, 4500);
-
-            setTimeout(() => {
-                updateCalibrateState("All set!", true);
-            }, 7500);
-        }
-
-        // ==========================================
-        // ฟังก์ชันระบบ Countdown และ Pop-up 
-        // ==========================================
+        // ฟังก์ชันระบบ Countdown และยิง API ไปหา Python
         function startCalibration() {
-            // ป้องกันผู้ใช้กดซ้ำ
+            // 1. สั่งให้ Python เริ่มเก็บข้อมูลไหล่
+            fetch('http://localhost:5000/api/calibrate', {
+                    method: 'POST'
+                })
+                .catch(err => console.error("Error connecting to AI:", err));
+
+            // 2. ล็อกปุ่ม
             readyBtn.disabled = true;
             readyBtn.classList.remove('hover:-translate-y-1', 'hover:shadow-xl', 'cursor-pointer', 'hover:bg-kaya-gradEnd');
             readyBtn.classList.add('cursor-wait', 'opacity-90');
 
             let count = 3;
             readyBtn.innerText = count;
+            statusText.innerText = '" Calibrating... Please stay still "';
 
-            // นำถอยหลังปุ่ม Ready 3 วิ
+            // นับถอยหลัง 3 วิ (ให้ตรงกับเวลาฝั่ง Python)
             const countInterval = setInterval(() => {
                 count--;
                 if (count > 0) {
@@ -227,7 +194,7 @@
                 } else {
                     clearInterval(countInterval);
                     readyBtn.innerText = "Done!";
-                    showSuccessPopup(); // เรียก Pop-up เมื่อนับจบ
+                    showSuccessPopup();
                 }
             }, 1000);
         }
@@ -237,26 +204,21 @@
             const content = document.getElementById('successContent');
             const countdownSpan = document.getElementById('redirectCountdown');
 
-            // แสดง Pop-up (ลบคลาสที่ซ่อนไว้ออก)
             modal.classList.remove('opacity-0', 'pointer-events-none');
             content.classList.remove('scale-95');
             content.classList.add('scale-100');
 
             let redirectCount = 5;
-            // นับถอยหลัง 5 วิก่อนไปหน้า Dashboard
             const redirectInterval = setInterval(() => {
                 redirectCount--;
                 if (redirectCount > 0) {
                     countdownSpan.innerText = redirectCount;
                 } else {
                     clearInterval(redirectInterval);
-                    window.location.href = 'dashboard.html'; // พาไปหน้า Dashboard
+                    window.location.href = 'session.html'; // <--- เปลี่ยนไปหน้า session.html แทน dashboard
                 }
             }, 1000);
         }
-
-        // โหลดเสร็จให้เปิดกล้อง
-        window.addEventListener('load', startWebcam);
     </script>
 </body>
 
