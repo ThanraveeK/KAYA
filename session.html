@@ -5,13 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KAYA - Session</title>
-
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
-
     <script src="https://cdn.tailwindcss.com"></script>
-
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
@@ -21,10 +16,7 @@
                             bg: '#faf6eb',
                             greenLight: '#9fae9a',
                             greenDark: '#7b8a76',
-                            gradStart: '#9fae9a',
-                            gradEnd: '#607d63',
                             yellow: '#eddea2',
-                            gray: '#d9d9d9',
                             grayDark: '#a6a6a6',
                             menuLight: '#faf6eb',
                             menuDark: '#e9dfb7'
@@ -32,26 +24,18 @@
                     },
                     fontFamily: {
                         serif: ['"Cormorant Garamond"', 'serif'],
-                        sans: ['Nunito', 'sans-serif'],
+                        sans: ['Nunito', 'sans-serif']
                     }
                 }
             }
         }
     </script>
     <style>
-        .animate-fade-in {
-            animation: fadeIn 0.8s ease-in-out;
-        }
+        /* CSS เพิ่มการเรืองแสงให้วงแหวนตอนทำท่าถูกต้อง */
         
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: scale(0.95);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1);
-            }
+        .glow-active {
+            filter: drop-shadow(0 0 25px #eddea2);
+            border-color: #eddea2 !important;
         }
     </style>
 </head>
@@ -61,26 +45,20 @@
     <aside class="w-72 bg-kaya-greenLight flex flex-col justify-between py-10 px-6 shrink-0 opacity-40">
         <div>
             <div class="mb-12 flex flex-col items-center text-center">
-                <h1 class="text-6xl font-serif font-bold tracking-[0.15em] text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark leading-none">
-                    KAYA
-                </h1>
-                <p class="text-[11px] text-kaya-menuLight font-bold mt-1">
-                    AI-Assisted Rusie Dutton Therapy
-                </p>
+                <h1 class="text-6xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark leading-none">KAYA</h1>
+                <p class="text-[11px] text-kaya-menuLight font-bold mt-1">AI-Assisted Rusie Dutton Therapy</p>
             </div>
             <nav class="flex flex-col gap-3">
                 <div class="flex items-center gap-4 bg-kaya-greenDark px-5 py-3 rounded-xl text-kaya-menuLight">
-                    <span class="text-xl font-bold font-sans">Dashboard</span>
+                    <span class="text-xl font-bold">Dashboard</span>
                 </div>
             </nav>
         </div>
     </aside>
 
     <main class="flex-1 p-10 md:p-12 relative w-full opacity-40">
-        <h2 class="text-4xl font-serif font-bold text-kaya-greenDark tracking-wide mb-8">
-            DASHBOARD OVERVIEW
-        </h2>
-        <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 mb-8 border border-white h-32"></div>
+        <h2 class="text-4xl font-serif font-bold text-kaya-greenDark tracking-wide mb-8">DASHBOARD OVERVIEW</h2>
+        <div class="bg-white rounded-[2rem] p-8 shadow-xl mb-8 border border-white h-32"></div>
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
             <div class="bg-white rounded-[2.5rem] p-10 h-64 border border-white"></div>
             <div class="flex flex-col gap-6">
@@ -95,62 +73,38 @@
 
             <div id="activeSessionView" class="flex flex-col h-full w-full">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 id="sessionTitle" class="text-3xl md:text-4xl font-sans font-bold text-kaya-greenDark tracking-wide">
-                        Loading...
-                    </h2>
-                    <span id="timerDisplay" class="text-3xl md:text-4xl font-sans font-bold text-kaya-grayDark">
-                        02:00
-                    </span>
+                    <h2 id="sessionTitle" class="text-3xl font-sans font-bold text-kaya-greenDark">Loading...</h2>
+                    <span id="timerDisplay" class="text-3xl md:text-4xl font-sans font-bold text-kaya-grayDark">02:00</span>
                 </div>
 
-                <div class="flex-1 flex flex-col md:flex-row gap-8 mb-6 min-h-0 items-center">
-
+                <div class="flex-1 flex flex-col md:flex-row gap-8 mb-6 items-center">
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
-                        <div id="breathingLabel" class="text-xl md:text-2xl font-sans font-bold text-kaya-greenDark mb-6 tracking-[0.2em] uppercase">
-                            INHALE
-                        </div>
-
-                        <div id="breathingCircle" class="w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] border-kaya-greenLight transition-all duration-1000 ease-in-out shadow-lg bg-transparent mb-6">
-                        </div>
-
+                        <div id="breathingLabel" class="text-xl md:text-2xl font-sans font-bold text-kaya-greenDark mb-6 tracking-[0.2em] uppercase">GET READY</div>
+                        <div id="breathingCircle" class="w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] border-kaya-grayDark transition-all duration-[3000ms] ease-in-out shadow-lg bg-transparent mb-6"></div>
                         <div class="flex items-center gap-2">
-                            <span class="text-kaya-grayDark text-sm uppercase tracking-widest font-bold">Time:</span>
-                            <span id="breathingTimerDisplay" class="text-xl font-sans font-bold text-kaya-greenDark">
-                                5
-                            </span>
+                            <span class="text-kaya-grayDark text-sm uppercase tracking-widest font-bold">Phase Time:</span>
+                            <span id="breathingTimerDisplay" class="text-3xl font-sans font-bold text-kaya-greenDark">10</span>
                         </div>
                     </div>
 
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
                         <div class="w-full text-center mb-3">
-                            <span id="postureStatusTop" class="text-xs font-bold text-kaya-grayDark uppercase tracking-widest transition-colors duration-300">
-                                EVALUATING POSTURE...
-                            </span>
+                            <span id="postureStatusTop" class="text-sm font-bold text-kaya-grayDark uppercase tracking-widest">EVALUATING...</span>
                         </div>
-
                         <div class="w-full h-[70%] lg:h-[80%] rounded-[2.5rem] flex items-center justify-center bg-gray-100 overflow-hidden relative shadow-inner border border-gray-200">
-                            <img src="http://localhost:5000/video_feed" class="absolute inset-0 w-full h-full object-cover" alt="AI Session Feed">
+                            <img src="http://localhost:5000/video_feed" class="absolute inset-0 w-full h-full object-cover" alt="Feed">
                         </div>
                     </div>
                 </div>
 
                 <div class="flex justify-center shrink-0">
-                    <a href="stretch.html" class="bg-kaya-greenDark text-white px-16 py-3 rounded-2xl text-xl font-bold shadow-md hover:shadow-xl hover:-translate-y-1 transition duration-300">
-                        Exit
-                    </a>
+                    <a href="stretch.html" class="bg-kaya-greenDark text-white px-16 py-3 rounded-2xl text-xl font-bold shadow-md hover:shadow-xl transition duration-300">Exit</a>
                 </div>
             </div>
 
-            <div id="successSessionView" class="hidden flex-col items-center justify-center h-full w-full text-center animate-fade-in">
-                <div class="text-kaya-greenDark mb-8 flex items-end justify-center relative">
-                    <svg class="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
-                        <path d="M12 4a2 2 0 110 4 2 2 0 010-4zM6 10h12v2h-3v10h-2v-6h-2v6H9V12H6v-2z"></path>
-                    </svg>
-                </div>
-                <h2 class="text-4xl font-sans font-bold text-kaya-greenDark mb-4">Balance Restored</h2>
-                <a href="dashboard.html" class="bg-kaya-greenDark text-white px-12 py-3 rounded-2xl text-xl font-bold shadow-md hover:shadow-xl transition duration-300">
-                    Return to work
-                </a>
+            <div id="successSessionView" class="hidden flex-col items-center justify-center h-full w-full text-center">
+                <h2 class="text-5xl font-serif font-bold text-kaya-greenDark mb-4">Therapy Complete!</h2>
+                <a href="dashboard.html" class="bg-kaya-greenDark text-white px-12 py-4 rounded-2xl text-xl font-bold mt-8 shadow-lg">Return to Dashboard</a>
             </div>
 
         </div>
@@ -158,103 +112,94 @@
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
-        const sessionType = urlParams.get('type');
-        const sessionTitle = document.getElementById('sessionTitle');
-        sessionTitle.innerText = sessionType === 'back' ? "Back & Spine Relief" : "Neck & Shoulder Relief";
+        const sessionType = urlParams.get('type') || 'neck';
+        document.getElementById('sessionTitle').innerText = sessionType === 'back' ? "Back & Spine Relief" : "Neck & Shoulder Relief";
 
-        let prepTimeLeft = 3;
         let isPrepPhase = true;
-        let totalTimeLeft = 120;
-        let breathTimer = 5;
-        let breathState = 'INHALE';
+        let prepTimeLeft = 10;
+        let totalTimeLeft = 120; // 2 นาที
 
         const timerDisplay = document.getElementById('timerDisplay');
-        const activeView = document.getElementById('activeSessionView');
-        const successView = document.getElementById('successSessionView');
         const breathingLabel = document.getElementById('breathingLabel');
         const breathingCircle = document.getElementById('breathingCircle');
         const breathingTimerDisplay = document.getElementById('breathingTimerDisplay');
-
-        // เราเหลือแค่ตัวอัปเดตสถานะด้านบนกล้อง
         const statusTop = document.getElementById('postureStatusTop');
 
         function updateCircleUI(scale, colorClass) {
             breathingCircle.style.transform = `scale(${scale})`;
-            breathingCircle.className = `w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] ${colorClass} transition-all duration-1000 ease-in-out shadow-lg bg-transparent mb-6`;
+            breathingCircle.className = `w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] ${colorClass} transition-all duration-[3000ms] ease-in-out shadow-lg bg-transparent mb-6`;
         }
 
-        breathingLabel.innerText = "GET READY";
-        breathingTimerDisplay.innerText = prepTimeLeft;
-        updateCircleUI(1.0, 'border-kaya-grayDark');
-
-        setInterval(() => {
-            if (!isPrepPhase) {
-                fetch('http://localhost:5000/api/status')
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.pose_msg) {
-                            if (data.pose_msg === "PERFECT POSTURE!") {
-                                statusTop.innerText = "PERFECT POSTURE";
-                                statusTop.className = "text-xs font-bold text-kaya-greenDark uppercase tracking-widest";
-                            } else {
-                                statusTop.innerText = "PLEASE ADJUST YOUR POSTURE";
-                                statusTop.className = "text-xs font-bold text-red-500 uppercase tracking-widest";
-                            }
-                        } else {
-                            statusTop.innerText = "EVALUATING POSTURE...";
-                            statusTop.className = "text-xs font-bold text-kaya-grayDark uppercase tracking-widest";
-                        }
-                    }).catch(e => console.log(e));
-            }
-        }, 200);
-
-        const countdown = setInterval(() => {
+        // ระบบนับถอยหลังรวมและเตรียมพร้อม
+        const sessionCountdown = setInterval(() => {
             if (isPrepPhase) {
                 prepTimeLeft--;
                 breathingTimerDisplay.innerText = prepTimeLeft;
                 if (prepTimeLeft <= 0) {
                     isPrepPhase = false;
                     fetch('http://localhost:5000/api/start_pose', {
-                        method: 'POST'
-                    }).catch(err => console.error(err));
-                    breathingLabel.innerText = breathState;
-                    breathingTimerDisplay.innerText = breathTimer;
-                    updateCircleUI(1.05, 'border-kaya-greenLight');
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            type: sessionType
+                        })
+                    });
+                    startStateListener();
                 }
-                return;
-            }
+            } else {
+                // นับเวลา Session รวม (02:00)
+                totalTimeLeft--;
+                let min = Math.floor(totalTimeLeft / 60);
+                let sec = totalTimeLeft % 60;
+                timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
 
-            totalTimeLeft--;
-            breathTimer--;
-
-            let min = Math.floor(totalTimeLeft / 60);
-            let sec = totalTimeLeft % 60;
-            timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-
-            if (breathTimer <= 0) {
-                if (breathState === 'INHALE') {
-                    breathState = 'HOLD';
-                    breathTimer = 8;
-                    updateCircleUI(1.05, 'border-kaya-yellow');
-                } else if (breathState === 'HOLD') {
-                    breathState = 'EXHALE';
-                    breathTimer = 5;
-                    updateCircleUI(0.95, 'border-kaya-greenDark');
-                } else if (breathState === 'EXHALE') {
-                    breathState = 'INHALE';
-                    breathTimer = 5;
-                    updateCircleUI(1.05, 'border-kaya-greenLight');
+                if (totalTimeLeft <= 0) {
+                    clearInterval(sessionCountdown);
+                    document.getElementById('activeSessionView').classList.add('hidden');
+                    document.getElementById('successSessionView').classList.replace('hidden', 'flex');
                 }
-            }
-            breathingLabel.innerText = breathState;
-            breathingTimerDisplay.innerText = breathTimer;
-
-            if (totalTimeLeft <= 0) {
-                clearInterval(countdown);
-                activeView.classList.add('hidden');
-                successView.classList.replace('hidden', 'flex');
             }
         }, 1000);
+
+        function startStateListener() {
+            setInterval(() => {
+                if (totalTimeLeft <= 0) return;
+                fetch('http://localhost:5000/api/status')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.breathing) {
+                            breathingLabel.innerText = data.breathing;
+                            breathingTimerDisplay.innerText = data.time_left;
+
+                            // 3-Phase Animation & Glow effect
+                            if (data.breathing === "INHALE") {
+                                updateCircleUI(1.15, 'border-kaya-greenLight');
+                                breathingCircle.classList.remove('glow-active');
+                            } else if (data.breathing === "HOLD") {
+                                updateCircleUI(1.15, 'border-kaya-yellow');
+                                if (data.pose_msg === "PERFECT!") {
+                                    breathingCircle.classList.add('glow-active'); // เรืองแสงเมื่อทำถูก
+                                } else {
+                                    breathingCircle.classList.remove('glow-active');
+                                }
+                            } else if (data.breathing === "EXHALE") {
+                                updateCircleUI(0.85, 'border-kaya-greenDark');
+                                breathingCircle.classList.remove('glow-active');
+                            }
+                        }
+
+                        // แสดงสถานะภาษาอังกฤษ + ฟีดแบ็ก
+                        if (data.pose_msg && data.instruction) {
+                            statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : " (ADJUST POSE)");
+                            statusTop.className = `text-sm font-bold uppercase tracking-widest ${data.pose_msg === "PERFECT!" ? 'text-kaya-greenDark' : 'text-red-500'}`;
+                        } else if (data.calib_msg) {
+                            statusTop.innerText = data.calib_msg;
+                        }
+                    }).catch(e => console.log(e));
+            }, 200);
+        }
     </script>
 </body>
 
