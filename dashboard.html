@@ -172,69 +172,73 @@
             </div>
         </div>
     </main>
-
     <script>
         let aiPollingInterval = null;
         let onCooldown = false;
-        let hiddenImg = null;
 
-        function toggleSession() {
+        window.addEventListener('load', async() => {
+            try {
+                const response = await fetch('http://localhost:5000/api/session_status');
+                const data = await response.json();
+
+                if (data.active) {
+                    setUIActive(true);
+                    aiPollingInterval = setInterval(pollAIStatus, 2000);
+                }
+            } catch (error) {
+                console.log("KAYA Backend Offline");
+            }
+        });
+
+        async function toggleSession() {
+            const btn = document.getElementById('sessionBtn');
+            const isStarting = btn.innerText.trim() === 'Begin Session';
+
+            try {
+                await fetch('http://localhost:5000/api/toggle_session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: isStarting ? 'start' : 'stop'
+                    })
+                });
+
+                if (isStarting) {
+                    setUIActive(true);
+                    aiPollingInterval = setInterval(pollAIStatus, 2000);
+                } else {
+                    setUIActive(false);
+                    if (aiPollingInterval) {
+                        clearInterval(aiPollingInterval);
+                        aiPollingInterval = null;
+                    }
+                }
+            } catch (e) {
+                alert("Cannot connect to KAYA AI Backend.");
+            }
+        }
+
+        function setUIActive(isActive) {
             const btn = document.getElementById('sessionBtn');
             const statusBadge = document.getElementById('aiStatusBadge');
 
-            if (btn.innerText.trim() === 'Begin Session') {
+            if (isActive) {
                 btn.innerText = 'Stop Session';
-                btn.classList.remove('bg-kaya-greenDark');
-                btn.classList.add('bg-kaya-grayDark');
-
-                if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-                    Notification.requestPermission();
-                }
-
+                btn.classList.replace('bg-kaya-greenDark', 'bg-kaya-grayDark');
                 if (statusBadge) {
                     statusBadge.classList.replace('border-kaya-grayDark', 'border-kaya-greenLight');
                     statusBadge.classList.replace('text-kaya-grayDark', 'text-kaya-greenDark');
                     statusBadge.innerHTML = '<div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div> AI TRACKING';
                 }
-
-                if (!hiddenImg) {
-                    hiddenImg = document.createElement('img');
-                    hiddenImg.src = "http://localhost:5000/video_feed";
-
-                    // 💡 [แก้ไขตรงนี้] วางไว้มุมจอให้เบราว์เซอร์เห็น แต่ทำให้เล็ก 2px และโปร่งใส 0.01
-                    hiddenImg.style.position = "absolute";
-                    hiddenImg.style.bottom = "10px";
-                    hiddenImg.style.right = "10px";
-                    hiddenImg.style.width = "2px";
-                    hiddenImg.style.height = "2px";
-                    hiddenImg.style.opacity = "0.01";
-                    hiddenImg.style.pointerEvents = "none"; // กดไม่โดน
-
-                    document.body.appendChild(hiddenImg);
-                }
-
-                aiPollingInterval = setInterval(pollAIStatus, 2000);
-
             } else {
                 btn.innerText = 'Begin Session';
-                btn.classList.remove('bg-kaya-grayDark');
-                btn.classList.add('bg-kaya-greenDark');
-
+                btn.classList.replace('bg-kaya-grayDark', 'bg-kaya-greenDark');
                 if (statusBadge) {
                     statusBadge.classList.replace('border-kaya-greenLight', 'border-kaya-grayDark');
                     statusBadge.classList.replace('text-kaya-greenDark', 'text-kaya-grayDark');
                     statusBadge.innerHTML = '<div class="w-3 h-3 rounded-full bg-kaya-grayDark"></div> AI STANDBY';
-                }
-
-                if (aiPollingInterval) {
-                    clearInterval(aiPollingInterval);
-                    aiPollingInterval = null;
-                }
-
-                if (hiddenImg) {
-                    hiddenImg.src = "";
-                    hiddenImg.remove();
-                    hiddenImg = null;
                 }
             }
         }
@@ -245,54 +249,23 @@
                 const response = await fetch('http://localhost:5000/api/status');
                 const data = await response.json();
 
+                // 💡 [แก้ไข] เบราว์เซอร์ไม่ต้องยิง Push Notification แล้ว เพราะ Python จัดการให้แบบทะลุหน้าจอไปแล้ว
+                // แต่ถ้าเบราว์เซอร์ยังเปิดอยู่ มันจะแอบเปลี่ยนหน้าจอรอไว้ให้คุณเลย!
                 if (data.pose_msg && data.pose_msg !== "") {
                     let msg = data.pose_msg;
-                    let title = "",
-                        body = "",
-                        url = "";
+                    onCooldown = true;
+                    setTimeout(() => {
+                        onCooldown = false;
+                    }, 30000);
 
-                    if (msg.includes("Forward Head")) {
-                        title = "Watch Your Screen Distance";
-                        body = "Your screen is drawing you in. Pull your chin back and relax your neck.";
-                        url = "session.html?type=neck";
-                    } else if (msg.includes("Rounded Shoulders")) {
-                        title = "Open Your Chest";
-                        body = "We noticed a slouch. Take a deep breath and roll your shoulders back.";
-                        url = "session.html?type=neck";
+                    if (msg.includes("Forward Head") || msg.includes("Rounded Shoulders")) {
+                        window.location.href = "session.html?type=neck";
                     } else if (msg.includes("Prolonged Static Posture")) {
-                        title = "Mindful Break";
-                        body = "You've been focused for a while. Let's take a quick stretch.";
-                        url = "session.html?type=back";
+                        window.location.href = "session.html?type=back";
                     }
-
-                    if (title) fireRealNotification(title, body, url);
                 }
             } catch (error) {
                 console.log("Waiting for KAYA AI Backend...");
-            }
-        }
-
-        function fireRealNotification(title, body, url) {
-            onCooldown = true;
-            setTimeout(() => {
-                onCooldown = false;
-            }, 30000);
-
-            if ("Notification" in window && Notification.permission === "granted") {
-                const notification = new Notification("KAYA 🔔", {
-                    body: title + "\n" + body,
-                    icon: "https://cdn-icons-png.flaticon.com/512/2950/2950322.png",
-                    requireInteraction: true
-                });
-                notification.onclick = function(event) {
-                    event.preventDefault();
-                    window.focus();
-                    window.location.href = url;
-                    notification.close();
-                };
-            } else {
-                alert("KAYA 🔔 Alert!\n\n" + title + "\n" + body);
-                window.location.href = url;
             }
         }
     </script>

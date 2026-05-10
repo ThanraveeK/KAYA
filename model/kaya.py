@@ -1,10 +1,12 @@
-from flask import Flask, Response, jsonify
+from flask import Flask, Response, jsonify, request
 from flask_cors import CORS
 import cv2
 import mediapipe as mp
 import time
 import math
 import numpy as np
+import threading
+from plyer import notification # <-- [NEW] ไลบรารีแจ้งเตือนระดับ OS
 
 app = Flask(__name__)
 CORS(app)
@@ -15,6 +17,7 @@ mp_drawing = mp.solutions.drawing_utils
 
 BODY_CONNECTIONS = frozenset([conn for conn in mp_pose.POSE_CONNECTIONS if conn[0] > 10 and conn[1] > 10])
 
+# Variables
 baseline_shoulder_width = None
 is_calibrating = False
 calibration_start_time = 0
@@ -30,30 +33,39 @@ EXHALE_SEC = 5
 current_calib_msg = "Waiting for camera..."
 current_pose_msg = ""
 
-# เวลาในการตรวจจับ (วินาที) อย่าลืมปรับเป็น 5 ตอนเทสต์ครับ
-FHP_TIME_LIMIT = 300       
-ROUNDED_TIME_LIMIT = 300   
-STATIC_TIME_LIMIT = 2700   
+# เวลาตรวจจับ (อย่าลืมปรับเป็น 5 ตอนเทสต์นะครับ)
+FHP_TIME_LIMIT = 5       
+ROUNDED_TIME_LIMIT = 5   
+STATIC_TIME_LIMIT = 10   
 
 fhp_start_time = None
 rounded_start_time = None
 static_start_time = None
 static_anchor = None
 
-def generate_frames():
+tracking_active = False
+manual_session = False
+camera_thread = None
+output_frame = None
+
+# ป้องกันการยิงแจ้งเตือนรัวๆ
+last_os_alert_time = 0
+
+def tracking_loop():
+    global tracking_active, output_frame
     global baseline_shoulder_width, is_calibrating, calibration_start_time, calibration_data_x
     global breathing_state, breath_start_time, current_calib_msg, current_pose_msg
     global fhp_start_time, rounded_start_time, static_start_time, static_anchor
+    global last_os_alert_time
     
     cap = cv2.VideoCapture(0, cv2.CAP_MSMF)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
     try:
-        while cap.isOpened():
+        while tracking_active:
             ret, frame = cap.read()
             
-            # 💡 [แก้ไข] ถ้ากล้องดึงภาพไม่ทัน ให้รอ 0.1 วิแล้วลองใหม่ ห้ามปิดกล้องหนี
             if not ret: 
                 time.sleep(0.1)
                 continue
@@ -64,7 +76,6 @@ def generate_frames():
             
             h, w, c = frame.shape
             current_time = time.time()
-
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             brightness = np.mean(gray)
 
@@ -135,7 +146,7 @@ def generate_frames():
                         if fhp_start_time is None: 
                             fhp_start_time = current_time
                         elif (current_time - fhp_start_time) >= FHP_TIME_LIMIT:
-                            active_warnings.append("Forward Head Detected")
+                            active_warnings.append("Forward Head")
                     else:
                         fhp_start_time = None 
 
@@ -143,7 +154,7 @@ def generate_frames():
                         if rounded_start_time is None: 
                             rounded_start_time = current_time
                         elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT:
-                            active_warnings.append("Rounded Shoulders Detected")
+                            active_warnings.append("Rounded Shoulders")
                     else:
                         rounded_start_time = None
 
@@ -164,10 +175,38 @@ def generate_frames():
                             static_anchor = current_coords
                             static_start_time = current_time
                         elif (current_time - static_start_time) >= STATIC_TIME_LIMIT:
-                            active_warnings.append("Prolonged Static Posture: Time to stretch!")
+                            active_warnings.append("Prolonged Static Posture")
 
                     if active_warnings:
                         current_pose_msg = " | ".join(active_warnings)
+                        
+                        # 💡 [NEW] ให้ Python ยิงแจ้งเตือนทะลุเบราว์เซอร์ไปที่ OS โดยตรง!
+                        if current_time - last_os_alert_time > 30: # ป้องกันแจ้งเตือนรัวเกินไป (หน่วง 30 วิ)
+                            try:
+                                title_text = "KAYA 🔔 Alert!"
+                                body_text = current_pose_msg
+                                
+                                # แต่งข้อความแจ้งเตือนให้สวยงาม
+                                if "Forward Head" in current_pose_msg:
+                                    title_text = "Watch Your Screen Distance"
+                                    body_text = "Pull your chin back and relax your neck."
+                                elif "Rounded Shoulders" in current_pose_msg:
+                                    title_text = "Open Your Chest"
+                                    body_text = "Take a deep breath and roll your shoulders back."
+                                elif "Prolonged" in current_pose_msg:
+                                    title_text = "Mindful Break"
+                                    body_text = "You've been focused for a while. Let's take a quick stretch."
+                                    
+                                notification.notify(
+                                    title=title_text,
+                                    message=body_text,
+                                    app_name="KAYA Posture",
+                                    timeout=10 # แจ้งเตือนค้างไว้ 10 วินาที
+                                )
+                                last_os_alert_time = current_time
+                            except Exception as e:
+                                print("OS Notification Error:", e)
+                                
                     else:
                         current_pose_msg = ""
 
@@ -184,13 +223,33 @@ def generate_frames():
                     breath_start_time = current_time
 
             ret, buffer = cv2.imencode('.jpg', frame)
-            frame_bytes = buffer.tobytes()
+            if ret:
+                output_frame = buffer.tobytes()
             
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
-                   
+            time.sleep(0.03)
+
     finally:
         cap.release()
+
+def generate_frames():
+    global tracking_active, camera_thread, output_frame, manual_session
+    
+    started_by_feed = False
+    if not tracking_active:
+        tracking_active = True
+        started_by_feed = True
+        camera_thread = threading.Thread(target=tracking_loop, daemon=True)
+        camera_thread.start()
+
+    try:
+        while tracking_active:
+            if output_frame is not None:
+                yield (b'--frame\r\n'
+                       b'Content-Type: image/jpeg\r\n\r\n' + output_frame + b'\r\n')
+            time.sleep(0.05)
+    finally:
+        if started_by_feed and not manual_session:
+            tracking_active = False
 
 @app.route('/video_feed')
 def video_feed():
@@ -203,6 +262,32 @@ def get_status():
         "calib_msg": current_calib_msg,
         "pose_msg": current_pose_msg
     })
+
+@app.route('/api/session_status', methods=['GET'])
+def session_status():
+    global manual_session
+    return jsonify({"active": manual_session})
+
+@app.route('/api/toggle_session', methods=['POST'])
+def toggle_session():
+    global tracking_active, camera_thread, manual_session
+    data = request.json or {}
+    action = data.get('action')
+
+    if action == 'start':
+        manual_session = True
+        if not tracking_active:
+            tracking_active = True
+            camera_thread = threading.Thread(target=tracking_loop, daemon=True)
+            camera_thread.start()
+        return jsonify({"status": "started"})
+        
+    elif action == 'stop':
+        manual_session = False
+        tracking_active = False
+        return jsonify({"status": "stopped"})
+        
+    return jsonify({"status": "error"})
 
 @app.route('/api/calibrate', methods=['POST'])
 def calibrate():
