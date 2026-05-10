@@ -58,7 +58,7 @@
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
                         <div class="w-full text-center mb-3"><span id="postureStatusTop" class="text-sm font-bold text-kaya-grayDark uppercase">EVALUATING...</span></div>
                         <div class="w-full h-[70%] rounded-[2.5rem] bg-gray-100 overflow-hidden relative shadow-inner border border-gray-200">
-                            <img src="http://localhost:5000/video_feed" class="absolute inset-0 w-full h-full object-cover">
+                            <img src="https://kaya-47w7.onrender.com/video_feed" class="absolute inset-0 w-full h-full object-cover">
                         </div>
                     </div>
                 </div>
@@ -91,7 +91,7 @@
                 if (prepTime <= 0) {
                     isPrep = false;
                     clearInterval(prepLoop);
-                    fetch('http://localhost:5000/api/start_pose', {
+                    fetch('https://kaya-47w7.onrender.com/api/start_pose', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -107,7 +107,7 @@
 
         function startSync() {
             setInterval(() => {
-                fetch('http://localhost:5000/api/status').then(res => res.json()).then(data => {
+                fetch('https://kaya-47w7.onrender.com/api/status').then(res => res.json()).then(data => {
                     if (data.is_complete) {
                         document.getElementById('activeSessionView').classList.add('hidden');
                         document.getElementById('successSessionView').classList.replace('hidden', 'flex');

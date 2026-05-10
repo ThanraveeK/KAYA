@@ -101,7 +101,7 @@
         </p>
 
         <div class="relative w-full max-w-2xl aspect-[4/3] rounded-[2.5rem] border-[12px] border-kaya-greenLight bg-white shadow-xl shadow-kaya-greenDark/10 overflow-hidden mb-8">
-            <img id="webcamVideo" src="http://localhost:5000/video_feed" class="w-full h-full object-cover" alt="AI Camera Feed">
+            <img id="webcamVideo" src="https://kaya-47w7.onrender.com/video_feed" class="w-full h-full object-cover" alt="AI Camera Feed">
 
             <div id="cameraLoading" class="absolute inset-0 flex items-center justify-center bg-gray-50 text-kaya-grayDark font-medium">
                 <div class="flex flex-col items-center gap-3">
@@ -142,7 +142,7 @@
             loadingElement.classList.add('hidden');
 
             setInterval(() => {
-                fetch('http://localhost:5000/api/status')
+                fetch('https://kaya-47w7.onrender.com/api/status')
                     .then(response => response.json())
                     .then(data => {
                         if (!isCalibratingNow) {
@@ -177,7 +177,7 @@
             if (isButtonLocked) return;
             isCalibratingNow = true;
 
-            fetch('http://localhost:5000/api/calibrate', {
+            fetch('https://kaya-47w7.onrender.com/api/calibrate', {
                 method: 'POST'
             });
 
