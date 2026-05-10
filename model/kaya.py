@@ -118,11 +118,9 @@ def tracking_loop():
     global fhp_start_time, rounded_start_time, static_start_time, static_anchor
     global last_frame_time, elapsed_phase, total_session_time, is_session_complete
     
-    # [อัปเดตใหม่] ใช้ CAP_DSHOW แก้อาการเปิดกล้องช้าและลดบั๊กค้างบน Windows
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    # ลดขนาด Buffer ลงเพื่อไม่ให้ภาพที่แสดงผลเกิดอาการดีเลย์
     cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
     try:
@@ -130,13 +128,11 @@ def tracking_loop():
             ret, frame = cap.read()
             current_time = time.time()
             
-            # การคำนวณส่วนต่างเวลา (Delta Time) เพื่อไม่ให้เวลาเดินตอนกล้องค้าง
             if last_frame_time == 0: 
                 last_frame_time = current_time
             dt = current_time - last_frame_time
             last_frame_time = current_time
             
-            # ถ้ากล้องค้างหรือหน่วงเกิน 1 วินาที ให้ถือว่าไม่นับเวลาช่วงนั้น (Pause)
             if dt > 1.0:
                 dt = 0
                 
@@ -152,7 +148,6 @@ def tracking_loop():
 
             if not results.pose_landmarks:
                 current_calib_msg = "Please step into the frame"
-                # ถ้าระบบหาคนไม่เจอ ให้หยุดเวลาไว้
                 if breathing_state == "ACTIVE":
                     target_breathing = "PAUSED"
                     current_pose_msg = "STAY IN FRAME TO RESUME"
@@ -164,7 +159,6 @@ def tracking_loop():
                 nose, left_ear, right_ear = lm[0], lm[7], lm[8]
                 curr_width = abs(ls.x - rs.x)
                 
-                # ตรวจสอบการมองเห็นว่าหลุดขอบกล้องหรือไม่
                 core_visibility = min(nose.visibility, ls.visibility, rs.visibility)
 
                 if brightness < 40:
@@ -225,19 +219,18 @@ def tracking_loop():
                         instruction_en = step_info["inst"]
                         pt = step_info["type"]
                         
-                        # ถ้าร่างกายหลุดออกนอกกล้อง ให้หยุดเวลาและแจ้งเตือน
                         if core_visibility < 0.5:
                             target_breathing = "PAUSED"
                             current_pose_msg = "STAY IN FRAME TO RESUME"
                         else:
-                            # เวลาจะเดินก็ต่อเมื่อกล้องไม่ค้างและตัวอยู่ในกล้อง
                             total_session_time -= dt
                             elapsed_phase += dt
                             
+                            # [แก้ไขที่ 1] ปิดสถานะกายภาพทันทีเมื่อครบ 2 นาที เพื่อไม่ให้ค้างไปถึงหน้า Calibrate
                             if total_session_time <= 0:
                                 is_session_complete = True
+                                breathing_state = "IDLE"
                             
-                            # --- ระบบ 3-Phase (3s-5s-3s) ---
                             if current_phase == 1:
                                 target_breathing = "INHALE"
                                 phase_duration = 3
@@ -260,7 +253,6 @@ def tracking_loop():
 
                             time_left = max(0, int(phase_duration - elapsed_phase))
 
-                            # ระบบตรวจจับองศาท่าทาง
                             is_perfect = False
                             wrist_dist = abs(lw.x - rw.x)
                             hands_clasped = wrist_dist < 0.12
@@ -330,7 +322,7 @@ def get_status():
         "instruction": instruction_en, 
         "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
         "time_left": time_left,
-        "total_time": max(0, int(total_session_time)), # ส่งเวลารวมให้ฝั่ง HTML
+        "total_time": max(0, int(total_session_time)), 
         "is_complete": is_session_complete
     })
 
@@ -344,7 +336,6 @@ def start_pose():
     current_step_idx = 0
     current_phase = 1
     
-    # รีเซ็ตตัวแปรเวลาทั้งหมด
     elapsed_phase = 0.0
     total_session_time = 120.0
     last_frame_time = time.time()
@@ -375,6 +366,11 @@ def toggle_session():
 @app.route('/api/calibrate', methods=['POST'])
 def calibrate():
     global is_calibrating, calibration_start_time, calibration_data_x, baseline_shoulder_width
+    global breathing_state 
+    
+    # [แก้ไขที่ 2] บังคับปิดโหมดกายภาพทันทีที่กด Calibrate เพื่อให้ Skeleton หายไป
+    breathing_state = "IDLE"
+
     if not is_calibrating:
         is_calibrating = True
         calibration_start_time = time.time()
