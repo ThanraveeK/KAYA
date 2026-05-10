@@ -11,7 +11,11 @@ app = Flask(__name__)
 CORS(app)
 
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
+pose = mp_pose.Pose(
+    model_complexity=0, 
+    min_detection_confidence=0.5, 
+    min_tracking_confidence=0.5
+)
 mp_drawing = mp.solutions.drawing_utils
 
 BODY_CONNECTIONS = frozenset([conn for conn in mp_pose.POSE_CONNECTIONS if conn[0] > 10 and conn[1] > 10])
