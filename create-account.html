@@ -110,19 +110,60 @@
             document.getElementById('modalContent').classList.add('translate-y-8');
         }
 
-        // Script สำหรับบันทึก LocalStorage
         function handleRegister() {
             const user = document.getElementById('reg_username_input').value;
+            const pwd = document.querySelectorAll('input[type="password"]')[0].value;
+            const pwdConfirm = document.querySelectorAll('input[type="password"]')[1].value;
             const terms = document.getElementById('terms').checked;
 
-            if (user.trim() !== "" && terms) {
-                localStorage.setItem('currentUser', user);
-                window.location.href = 'dashboard.html';
-            } else if (!terms) {
-                alert("Please agree to the Terms and Privacy Policy.");
-            } else {
+            const btn = document.querySelector('button[onclick="handleRegister()"]');
+
+            if (user.trim() === "") {
                 alert("Please enter a username.");
+                return;
             }
+            if (pwd.trim() === "") {
+                alert("Please enter a password.");
+                return;
+            }
+            if (pwd !== pwdConfirm) {
+                alert("Passwords do not match!");
+                return;
+            }
+            if (!terms) {
+                alert("Please agree to the Terms and Privacy Policy.");
+                return;
+            }
+
+            btn.innerText = "Creating...";
+            btn.disabled = true;
+
+            fetch('https://kaya-47w7.onrender.com/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        username: user,
+                        password: pwd
+                    })
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.status === "success") {
+                        localStorage.setItem('currentUser', user);
+                        alert("Account created successfully!");
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        alert(data.message);
+                        btn.innerText = "Create Account";
+                        btn.disabled = false;
+                    }
+                }).catch(err => {
+                    alert("Error connecting to server.");
+                    btn.innerText = "Create Account";
+                    btn.disabled = false;
+                });
         }
     </script>
     <style>

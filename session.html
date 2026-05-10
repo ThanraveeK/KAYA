@@ -58,7 +58,7 @@
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
                         <div class="w-full text-center mb-3"><span id="postureStatusTop" class="text-sm font-bold text-kaya-grayDark uppercase">EVALUATING...</span></div>
                         <div class="w-full h-[70%] rounded-[2.5rem] bg-gray-100 overflow-hidden relative shadow-inner border border-gray-200">
-                            <img src="https://kaya-47w7.onrender.com/video_feed" class="absolute inset-0 w-full h-full object-cover">
+                            <img id="webcamVideo" class="absolute inset-0 w-full h-full object-cover">
                         </div>
                     </div>
                 </div>
@@ -84,6 +84,21 @@
             bTimer = document.getElementById('breathingTimerDisplay'),
             statusTop = document.getElementById('postureStatusTop');
 
+        // ระบบกล้อง
+        const hiddenVideo = document.createElement('video');
+        hiddenVideo.autoplay = true;
+        const hiddenCanvas = document.createElement('canvas');
+        const ctx = hiddenCanvas.getContext('2d');
+        const displayImg = document.getElementById('webcamVideo');
+
+        navigator.mediaDevices.getUserMedia({
+                video: true
+            })
+            .then(stream => {
+                hiddenVideo.srcObject = stream;
+            })
+            .catch(err => alert("Camera is required for session!"));
+
         const prepLoop = setInterval(() => {
             if (isPrep) {
                 prepTime--;
@@ -107,37 +122,59 @@
 
         function startSync() {
             setInterval(() => {
-                fetch('https://kaya-47w7.onrender.com/api/status').then(res => res.json()).then(data => {
-                    if (data.is_complete) {
-                        document.getElementById('activeSessionView').classList.add('hidden');
-                        document.getElementById('successSessionView').classList.replace('hidden', 'flex');
-                        return;
-                    }
-                    if (data.total_time !== undefined) {
-                        let min = Math.floor(data.total_time / 60),
-                            sec = data.total_time % 60;
-                        timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-                    }
-                    bLabel.innerText = data.breathing;
-                    bTimer.innerText = data.time_left;
-                    if (data.breathing === "PAUSED") {
-                        bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-grayDark bg-transparent mb-6";
-                        bCircle.classList.remove('glow-active');
-                    } else if (data.breathing === "INHALE") {
-                        bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenLight bg-transparent mb-6 scale-110";
-                        bCircle.classList.remove('glow-active');
-                    } else if (data.breathing === "HOLD") {
-                        if (data.pose_msg === "PERFECT!") bCircle.classList.add('glow-active');
-                        else bCircle.classList.remove('glow-active');
-                    } else if (data.breathing === "EXHALE") {
-                        bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenDark bg-transparent mb-6 scale-90";
-                        bCircle.classList.remove('glow-active');
-                    }
+                if (hiddenVideo.readyState >= 2) {
+                    hiddenCanvas.width = 640;
+                    hiddenCanvas.height = 480;
+                    ctx.drawImage(hiddenVideo, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+                    const base64Image = hiddenCanvas.toDataURL('image/jpeg', 0.5);
 
-                    statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
-                    statusTop.className = `text-sm font-bold uppercase ${data.pose_msg === 'PERFECT!' ? 'text-kaya-greenDark' : (data.pose_msg.includes('FRAME') ? 'text-kaya-grayDark' : 'text-red-500')}`;
-                });
-            }, 200);
+                    fetch('https://kaya-47w7.onrender.com/api/process_frame', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                image: base64Image
+                            })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.image) displayImg.src = data.image;
+
+                            if (data.is_complete) {
+                                document.getElementById('activeSessionView').classList.add('hidden');
+                                document.getElementById('successSessionView').classList.replace('hidden', 'flex');
+                                return;
+                            }
+                            if (data.total_time !== undefined) {
+                                let min = Math.floor(data.total_time / 60),
+                                    sec = data.total_time % 60;
+                                timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+                            }
+                            bLabel.innerText = data.breathing || "IDLE";
+                            bTimer.innerText = data.time_left || 0;
+
+                            if (data.breathing === "PAUSED") {
+                                bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-grayDark bg-transparent mb-6";
+                                bCircle.classList.remove('glow-active');
+                            } else if (data.breathing === "INHALE") {
+                                bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenLight bg-transparent mb-6 scale-110";
+                                bCircle.classList.remove('glow-active');
+                            } else if (data.breathing === "HOLD") {
+                                if (data.pose_msg === "PERFECT!") bCircle.classList.add('glow-active');
+                                else bCircle.classList.remove('glow-active');
+                            } else if (data.breathing === "EXHALE") {
+                                bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenDark bg-transparent mb-6 scale-90";
+                                bCircle.classList.remove('glow-active');
+                            }
+
+                            if (data.instruction) {
+                                statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
+                                statusTop.className = `text-sm font-bold uppercase ${data.pose_msg === 'PERFECT!' ? 'text-kaya-greenDark' : (data.pose_msg && data.pose_msg.includes('FRAME') ? 'text-kaya-grayDark' : 'text-red-500')}`;
+                            }
+                        }).catch(e => console.log("Connection delay"));
+                }
+            }, 250);
         }
     </script>
 </body>

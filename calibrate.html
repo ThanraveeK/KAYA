@@ -88,9 +88,7 @@
 
     <main class="flex-1 p-10 md:p-12 overflow-y-auto relative w-full flex flex-col items-center">
         <div class="text-center mt-12 mb-4">
-            <h2 class="text-4xl font-serif font-bold text-kaya-greenDark tracking-wider uppercase drop-shadow-sm mb-4">
-                ALIGN YOUR POSTURE TO BEGIN
-            </h2>
+            <h2 class="text-4xl font-serif font-bold text-kaya-greenDark tracking-wider uppercase drop-shadow-sm mb-4">ALIGN YOUR POSTURE TO BEGIN</h2>
             <p class="text-sm md:text-base text-kaya-grayDark font-medium max-w-2xl mx-auto leading-relaxed">
                 Please sit up straight and face the screen.<br> Ensure your shoulders and chest are clearly visible in the frame to set your baseline posture.
             </p>
@@ -100,9 +98,11 @@
             " Waiting for camera... "
         </p>
 
-        <div class="relative w-full max-w-2xl aspect-[4/3] rounded-[2.5rem] border-[12px] border-kaya-greenLight bg-white shadow-xl shadow-kaya-greenDark/10 overflow-hidden mb-8">
-            <img id="webcamVideo" src="https://kaya-47w7.onrender.com/video_feed" class="w-full h-full object-cover" alt="AI Camera Feed">
+        <video id="hiddenVideo" autoplay playsinline class="hidden"></video>
+        <canvas id="hiddenCanvas" class="hidden"></canvas>
 
+        <div class="relative w-full max-w-2xl aspect-[4/3] rounded-[2.5rem] border-[12px] border-kaya-greenLight bg-white shadow-xl shadow-kaya-greenDark/10 overflow-hidden mb-8">
+            <img id="webcamVideo" class="w-full h-full object-cover" alt="AI Camera Feed">
             <div id="cameraLoading" class="absolute inset-0 flex items-center justify-center bg-gray-50 text-kaya-grayDark font-medium">
                 <div class="flex flex-col items-center gap-3">
                     <svg class="w-10 h-10 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -134,65 +134,93 @@
         const readyBtn = document.getElementById('readyBtn');
         const loadingElement = document.getElementById('cameraLoading');
         const statusText = document.getElementById('aiStatusText');
+        const hiddenVideo = document.getElementById('hiddenVideo');
+        const hiddenCanvas = document.getElementById('hiddenCanvas');
+        const displayImg = document.getElementById('webcamVideo');
+        const ctx = hiddenCanvas.getContext('2d');
 
         let isButtonLocked = true;
         let isCalibratingNow = false;
 
         window.addEventListener('load', () => {
-            loadingElement.classList.add('hidden');
-
-            setInterval(() => {
-                fetch('https://kaya-47w7.onrender.com/api/status')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (!isCalibratingNow) {
-                            statusText.innerText = `" ${data.calib_msg} "`;
-
-                            if (data.calib_msg === "All set!") {
-                                statusText.classList.replace('text-kaya-statusBlue', 'text-kaya-greenDark');
-                                if (isButtonLocked) {
-                                    isButtonLocked = false;
-                                    readyBtn.disabled = false;
-                                    readyBtn.classList.remove('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
-                                    readyBtn.classList.add('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
-                                }
-                            } else {
-                                statusText.classList.replace('text-kaya-greenDark', 'text-kaya-statusBlue');
-                                if (!isButtonLocked) {
-                                    isButtonLocked = true;
-                                    readyBtn.disabled = true;
-                                    readyBtn.classList.add('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
-                                    readyBtn.classList.remove('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
-                                }
-                            }
-                        } else {
-                            statusText.innerText = `" ${data.calib_msg} "`;
-                        }
-                    })
-                    .catch(err => console.error("Error fetching status:", err));
-            }, 300);
+            navigator.mediaDevices.getUserMedia({
+                    video: true
+                })
+                .then(stream => {
+                    hiddenVideo.srcObject = stream;
+                    loadingElement.classList.add('hidden');
+                    startFrameStream();
+                })
+                .catch(err => {
+                    alert("KAYA needs camera access to work properly!");
+                });
         });
+
+        function startFrameStream() {
+            setInterval(() => {
+                if (hiddenVideo.readyState >= 2) {
+                    hiddenCanvas.width = 640;
+                    hiddenCanvas.height = 480;
+                    ctx.drawImage(hiddenVideo, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
+                    const base64Image = hiddenCanvas.toDataURL('image/jpeg', 0.5);
+
+                    fetch('https://kaya-47w7.onrender.com/api/process_frame', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                image: base64Image
+                            })
+                        })
+                        .then(res => res.json())
+                        .then(data => {
+                            if (data.image) {
+                                displayImg.src = data.image;
+                            }
+
+                            if (!isCalibratingNow && data.calib_msg) {
+                                statusText.innerText = `" ${data.calib_msg} "`;
+                                if (data.calib_msg === "All set!") {
+                                    statusText.classList.replace('text-kaya-statusBlue', 'text-kaya-greenDark');
+                                    if (isButtonLocked) {
+                                        isButtonLocked = false;
+                                        readyBtn.disabled = false;
+                                        readyBtn.classList.remove('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
+                                        readyBtn.classList.add('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
+                                    }
+                                } else {
+                                    statusText.classList.replace('text-kaya-greenDark', 'text-kaya-statusBlue');
+                                    if (!isButtonLocked) {
+                                        isButtonLocked = true;
+                                        readyBtn.disabled = true;
+                                        readyBtn.classList.add('bg-kaya-grayDark', 'cursor-not-allowed', 'opacity-80');
+                                        readyBtn.classList.remove('bg-kaya-greenDark', 'hover:bg-kaya-gradEnd', 'cursor-pointer', 'hover:shadow-xl', 'hover:-translate-y-1');
+                                    }
+                                }
+                            } else if (data.calib_msg) {
+                                statusText.innerText = `" ${data.calib_msg} "`;
+                            }
+                        }).catch(err => console.log("Frame delay..."));
+                }
+            }, 250);
+        }
 
         function startCalibration() {
             if (isButtonLocked) return;
             isCalibratingNow = true;
-
             fetch('https://kaya-47w7.onrender.com/api/calibrate', {
                 method: 'POST'
             });
-
             readyBtn.disabled = true;
             readyBtn.classList.remove('hover:-translate-y-1', 'hover:shadow-xl', 'cursor-pointer', 'hover:bg-kaya-gradEnd');
             readyBtn.classList.add('cursor-wait', 'opacity-90');
-
             let count = 3;
             readyBtn.innerText = count;
-
             const countInterval = setInterval(() => {
                 count--;
-                if (count > 0) {
-                    readyBtn.innerText = count;
-                } else {
+                if (count > 0) readyBtn.innerText = count;
+                else {
                     clearInterval(countInterval);
                     readyBtn.innerText = "Done!";
                     showSuccessPopup();
@@ -204,21 +232,16 @@
             const modal = document.getElementById('successModal');
             const content = document.getElementById('successContent');
             const countdownSpan = document.getElementById('redirectCountdown');
-
-            // บันทึกสถานะการ Calibrate ลง LocalStorage สำหรับ User นี้ (ถ้าเขียนทับก็อัปเดตตรงนี้เลย)
             const user = localStorage.getItem('currentUser') || 'guest';
             localStorage.setItem('kaya_calibration_' + user, 'true');
-
             modal.classList.remove('opacity-0', 'pointer-events-none');
             content.classList.remove('scale-95');
             content.classList.add('scale-100');
-
             let redirectCount = 5;
             const redirectInterval = setInterval(() => {
                 redirectCount--;
-                if (redirectCount > 0) {
-                    countdownSpan.innerText = redirectCount;
-                } else {
+                if (redirectCount > 0) countdownSpan.innerText = redirectCount;
+                else {
                     clearInterval(redirectInterval);
                     window.location.href = 'dashboard.html';
                 }

@@ -5,7 +5,7 @@ import mediapipe as mp
 import time
 import math
 import numpy as np
-import threading
+import base64
 
 app = Flask(__name__)
 CORS(app)
@@ -16,6 +16,9 @@ mp_drawing = mp.solutions.drawing_utils
 
 BODY_CONNECTIONS = frozenset([conn for conn in mp_pose.POSE_CONNECTIONS if conn[0] > 10 and conn[1] > 10])
 
+# === ตัวแปรระบบ Login (Mock Database) ===
+users_db = {} # เก็บข้อมูล User แบบ In-memory (ข้อมูลจะรีเซ็ตเมื่อเซิร์ฟเวอร์ Render รีสตาร์ท)
+
 # Variables พื้นฐาน
 baseline_shoulder_width = None
 is_calibrating = False
@@ -25,9 +28,6 @@ calibration_data_x = []
 current_calib_msg = "Waiting for camera..."
 current_pose_msg = ""
 tracking_active = False
-manual_session = False
-camera_thread = None
-output_frame = None
 
 app_mode = "IDLE"
 
@@ -43,7 +43,7 @@ static_start_time = None
 breathing_state = "IDLE" 
 current_exercise_type = "neck"
 current_step_idx = 0
-current_phase = 1 # 1: Inhale, 2: Hold, 3: Exhale
+current_phase = 1 
 time_left = 3
 instruction_en = "Get Ready"
 target_breathing = "INHALE"
@@ -117,190 +117,208 @@ def draw_target_hologram(frame, pose_type, cx, cy, scale, color):
             cv2.circle(frame, v, 10, (255, 255, 255), -1)
             cv2.circle(frame, v, 10, color, 3)
 
-def tracking_loop():
-    global tracking_active, output_frame, is_calibrating, calibration_start_time, baseline_shoulder_width, calibration_data_x
+# === API สำหรับรับภาพจากหน้าเว็บมาประมวลผล (แทนที่การใช้ VideoCapture) ===
+@app.route('/api/process_frame', methods=['POST'])
+def process_frame():
+    global tracking_active, is_calibrating, calibration_start_time, baseline_shoulder_width, calibration_data_x
     global breathing_state, current_exercise_type, current_step_idx, current_phase, time_left, instruction_en, target_breathing, current_calib_msg, current_pose_msg
     global fhp_start_time, rounded_start_time, static_start_time
     global last_frame_time, elapsed_phase, total_session_time, is_session_complete, app_mode
-    
-    # Global Scoring Variables
     global daily_score, active_time_sec, stretch_count, continuous_bad_posture_sec
     global session_step_scores, current_phase2_perfect_sec
 
-    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    data = request.json
+    if not data or 'image' not in data:
+        return jsonify({"error": "No image provided"}), 400
 
-    try:
-        while tracking_active:
-            ret, frame = cap.read()
-            current_time = time.time()
-            if last_frame_time == 0: last_frame_time = current_time
-            dt = current_time - last_frame_time
-            last_frame_time = current_time
-            if dt > 1.0: dt = 0
-            if not ret: continue
-            
-            active_time_sec += dt
+    # แปลง Base64 กลับเป็นภาพ OpenCV
+    img_data = data['image'].split(',')[1]
+    nparr = np.frombuffer(base64.b64decode(img_data), np.uint8)
+    frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+
+    if frame is None:
+        return jsonify({"error": "Invalid image"}), 400
+
+    # คำนวณเวลา (Delta time)
+    current_time = time.time()
+    if last_frame_time == 0: last_frame_time = current_time
+    dt = current_time - last_frame_time
+    last_frame_time = current_time
+    if dt > 1.0: dt = 0 # กันเวลาข้ามถ้ารอเฟรมนานเกิน
+
+    # เริ่มประมวลผล (พลิกภาพให้เหมือนกระจก)
+    frame = cv2.flip(frame, 1)
+    results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    h, w, _ = frame.shape
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    brightness = np.mean(gray)
+
+    if not results.pose_landmarks:
+        current_calib_msg = "Please step into the frame"
+        if breathing_state == "ACTIVE":
+            target_breathing = "PAUSED"
+            current_pose_msg = "STAY IN FRAME TO RESUME"
+    else:
+        lm = results.pose_landmarks.landmark
+        ls, rs = lm[11], lm[12]
+        le, re = lm[13], lm[14]
+        lw, rw = lm[15], lm[16]
+        lh, rh = lm[23], lm[24]
+        nose = lm[0]
+        
+        curr_width = abs(ls.x - rs.x)
+        core_visibility = min(nose.visibility, ls.visibility, rs.visibility)
+
+        if brightness < 40: current_calib_msg = "Low light detected"
+        elif curr_width > 0.45: current_calib_msg = "Please move back slightly"
+        elif curr_width < 0.15: current_calib_msg = "Please move closer"
+        else:
+            if is_calibrating:
+                elapsed = current_time - calibration_start_time
+                if elapsed < calibration_duration:
+                    calibration_data_x.append(curr_width)
+                    current_calib_msg = f"Calibrating... {int(calibration_duration - elapsed) + 1}s"
+                else:
+                    if len(calibration_data_x) > 0: baseline_shoulder_width = sum(calibration_data_x) / len(calibration_data_x)
+                    is_calibrating = False
+                    app_mode = "IDLE"
+                    current_calib_msg = "Calibration Complete"
+            else: current_calib_msg = "All set!"
+
+        for i in range(11): lm[i].visibility = 0
+        mp_drawing.draw_landmarks(frame, results.pose_landmarks, BODY_CONNECTIONS)
+
+        if baseline_shoulder_width and not is_calibrating:
+            if breathing_state == "IDLE":
+                if tracking_active: # ถ้าอยู่ในโหมดเฝ้าระวัง
+                    active_time_sec += dt
+                    if curr_width < (baseline_shoulder_width * 0.95):
+                        continuous_bad_posture_sec += dt
+                        if rounded_start_time is None: rounded_start_time = current_time
+                        elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: 
+                            current_pose_msg = "Rounded Shoulders"
+                        
+                        if continuous_bad_posture_sec >= 300.0:
+                            daily_score = max(0.0, daily_score - 2.0)
+                            continuous_bad_posture_sec = 0.0 
+                    else: 
+                        rounded_start_time = None
+                        continuous_bad_posture_sec = 0.0
+                    
+            elif app_mode == "SESSION":
+                active_time_sec += dt
+                seq = NECK_STEPS if current_exercise_type == "neck" else BACK_STEPS
+                if current_step_idx >= len(seq): current_step_idx = 0 
+                step_info = seq[current_step_idx]
                 
-            frame = cv2.flip(frame, 1)
-            results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-            h, w, _ = frame.shape
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            brightness = np.mean(gray)
-
-            if not results.pose_landmarks:
-                current_calib_msg = "Please step into the frame"
-                if breathing_state == "ACTIVE":
+                instruction_en = step_info["inst"]
+                pt = step_info["type"]
+                
+                if core_visibility < 0.5:
                     target_breathing = "PAUSED"
                     current_pose_msg = "STAY IN FRAME TO RESUME"
-            else:
-                lm = results.pose_landmarks.landmark
-                ls, rs = lm[11], lm[12]
-                le, re = lm[13], lm[14]
-                lw, rw = lm[15], lm[16]
-                lh, rh = lm[23], lm[24]
-                nose = lm[0]
-                
-                curr_width = abs(ls.x - rs.x)
-                core_visibility = min(nose.visibility, ls.visibility, rs.visibility)
-
-                if brightness < 40: current_calib_msg = "Low light detected"
-                elif curr_width > 0.45: current_calib_msg = "Please move back slightly"
-                elif curr_width < 0.15: current_calib_msg = "Please move closer"
                 else:
-                    if is_calibrating:
-                        elapsed = current_time - calibration_start_time
-                        if elapsed < calibration_duration:
-                            calibration_data_x.append(curr_width)
-                            current_calib_msg = f"Calibrating... {int(calibration_duration - elapsed) + 1}s"
-                        else:
-                            if len(calibration_data_x) > 0: baseline_shoulder_width = sum(calibration_data_x) / len(calibration_data_x)
-                            is_calibrating = False
-                            app_mode = "IDLE"
-                            current_calib_msg = "Calibration Complete"
-                    else: current_calib_msg = "All set!"
-
-                for i in range(11): lm[i].visibility = 0
-                mp_drawing.draw_landmarks(frame, results.pose_landmarks, BODY_CONNECTIONS)
-
-                if baseline_shoulder_width and not is_calibrating:
-                    if breathing_state == "IDLE":
-                        # Monitoring Mode - SCORING LOGIC
-                        if curr_width < (baseline_shoulder_width * 0.95):
-                            continuous_bad_posture_sec += dt
-                            if rounded_start_time is None: rounded_start_time = current_time
-                            elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: 
-                                current_pose_msg = "Rounded Shoulders"
+                    total_session_time -= dt
+                    elapsed_phase += dt
+                    
+                    if total_session_time <= 0:
+                        is_session_complete = True
+                        breathing_state = "IDLE"
+                        stretch_count += 1
+                        if session_step_scores:
+                            avg_acc = sum(session_step_scores) / len(session_step_scores)
+                            bonus = (avg_acc / 100.0) * 5.0 
+                            daily_score = min(100.0, daily_score + bonus)
+                            session_step_scores.clear()
+                    
+                    if current_phase == 1:
+                        target_breathing = "INHALE"
+                        if elapsed_phase >= 3: current_phase, elapsed_phase = 2, 0
+                    elif current_phase == 2:
+                        target_breathing = "HOLD"
+                        if elapsed_phase >= 7: current_phase, elapsed_phase = 3, 0 
+                    elif current_phase == 3:
+                        target_breathing = "EXHALE"
+                        if current_exercise_type != "neck":
+                            pt = "ready"
+                            instruction_en = "Return to READY pose"
                             
-                            # หัก 2 คะแนน ทุกๆ 5 นาที (300 วิ) ที่สรีระผิดปกติ
-                            if continuous_bad_posture_sec >= 300.0:
-                                daily_score = max(0.0, daily_score - 2.0)
-                                continuous_bad_posture_sec = 0.0 # เริ่มนับใหม่
-                        else: 
-                            rounded_start_time = None
-                            continuous_bad_posture_sec = 0.0
-                            
-                    elif app_mode == "SESSION":
-                        seq = NECK_STEPS if current_exercise_type == "neck" else BACK_STEPS
-                        if current_step_idx >= len(seq): current_step_idx = 0 
-                        step_info = seq[current_step_idx]
-                        
-                        instruction_en = step_info["inst"]
-                        pt = step_info["type"]
-                        
-                        if core_visibility < 0.5:
-                            target_breathing = "PAUSED"
-                            current_pose_msg = "STAY IN FRAME TO RESUME"
-                        else:
-                            total_session_time -= dt
-                            elapsed_phase += dt
-                            
-                            if total_session_time <= 0:
-                                is_session_complete = True
-                                breathing_state = "IDLE"
-                                stretch_count += 1
-                                # จบ Session คำนวณ Recovery Bonus
-                                if session_step_scores:
-                                    avg_acc = sum(session_step_scores) / len(session_step_scores)
-                                    bonus = (avg_acc / 100.0) * 5.0 # คืนคะแนนสูงสุด 5 แต้ม
-                                    daily_score = min(100.0, daily_score + bonus)
-                                    session_step_scores.clear()
-                            
-                            # 3-Phase Logic
-                            if current_phase == 1:
-                                target_breathing = "INHALE"
-                                if elapsed_phase >= 3: current_phase, elapsed_phase = 2, 0
-                            elif current_phase == 2:
-                                target_breathing = "HOLD"
-                                if elapsed_phase >= 7: current_phase, elapsed_phase = 3, 0 
-                            elif current_phase == 3:
-                                target_breathing = "EXHALE"
-                                if current_exercise_type != "neck":
-                                    pt = "ready"
-                                    instruction_en = "Return to READY pose"
-                                    
-                                if elapsed_phase >= 3: 
-                                    # คำนวณคะแนนของท่าที่เพิ่งผ่านไป
-                                    step_score = min(100.0, (current_phase2_perfect_sec / 7.0) * 100.0)
-                                    session_step_scores.append(step_score)
-                                    current_phase2_perfect_sec = 0.0
-                                    
-                                    current_phase, elapsed_phase, current_step_idx = 1, 0, current_step_idx + 1
+                        if elapsed_phase >= 3: 
+                            step_score = min(100.0, (current_phase2_perfect_sec / 7.0) * 100.0)
+                            session_step_scores.append(step_score)
+                            current_phase2_perfect_sec = 0.0
+                            current_phase, elapsed_phase, current_step_idx = 1, 0, current_step_idx + 1
 
-                            time_limit = 7 if current_phase == 2 else 3
-                            time_left = max(0, int(time_limit - elapsed_phase))
+                    time_limit = 7 if current_phase == 2 else 3
+                    time_left = max(0, int(time_limit - elapsed_phase))
 
-                            # Pose Detection
-                            is_perfect = False
-                            if pt == "clasp":
-                                if abs(lw.x - rw.x) < 0.12 and lw.y > ls.y - 0.1: is_perfect = True
-                            elif pt == "back_left":
-                                if lw.y > ls.y and lw.y < lh.y and nose.x < (ls.x + rs.x)/2 - 0.05: is_perfect = True
-                            elif pt == "back_right":
-                                if rw.y > rs.y and rw.y < rh.y and nose.x > (ls.x + rs.x)/2 + 0.05: is_perfect = True
-                            elif pt == "ready":
-                                if lw.y > ls.y and rw.y > rs.y and abs(lw.x - ls.x) < 0.15: is_perfect = True
+                    is_perfect = False
+                    if pt == "clasp":
+                        if abs(lw.x - rw.x) < 0.12 and lw.y > ls.y - 0.1: is_perfect = True
+                    elif pt == "back_left":
+                        if lw.y > ls.y and lw.y < lh.y and nose.x < (ls.x + rs.x)/2 - 0.05: is_perfect = True
+                    elif pt == "back_right":
+                        if rw.y > rs.y and rw.y < rh.y and nose.x > (ls.x + rs.x)/2 + 0.05: is_perfect = True
+                    elif pt == "ready":
+                        if lw.y > ls.y and rw.y > rs.y and abs(lw.x - ls.x) < 0.15: is_perfect = True
 
-                            # เก็บเวลาที่ทำถูกต้องช่วง Phase 2 (Hold)
-                            if current_phase == 2 and is_perfect:
-                                current_phase2_perfect_sec += dt
+                    if current_phase == 2 and is_perfect:
+                        current_phase2_perfect_sec += dt
 
-                            cx, cy = int((ls.x + rs.x)/2 * w), int((ls.y + rs.y)/2 * h)
-                            draw_target_hologram(frame, pt, cx, cy, baseline_shoulder_width * w, (0, 255, 0) if is_perfect else (0, 165, 255))
-                            current_pose_msg = "PERFECT!" if is_perfect else "ADJUST POSE"
+                    cx, cy = int((ls.x + rs.x)/2 * w), int((ls.y + rs.y)/2 * h)
+                    draw_target_hologram(frame, pt, cx, cy, baseline_shoulder_width * w, (0, 255, 0) if is_perfect else (0, 165, 255))
+                    current_pose_msg = "PERFECT!" if is_perfect else "ADJUST POSE"
 
-            ret, buffer = cv2.imencode('.jpg', frame)
-            if ret: output_frame = buffer.tobytes()
-            time.sleep(0.01)
-    finally: cap.release()
+    # แปลงภาพกลับเป็น Base64 เพื่อส่งคืนให้หน้าเว็บ
+    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70]) # ลด Quality เพื่อให้ส่งเร็วขึ้น
+    out_b64 = "data:image/jpeg;base64," + base64.b64encode(buffer).decode('utf-8')
 
-@app.route('/video_feed')
-def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return jsonify({
+        "image": out_b64,
+        "calib_msg": current_calib_msg,
+        "pose_msg": current_pose_msg,
+        "instruction": instruction_en,
+        "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
+        "time_left": time_left,
+        "total_time": max(0, int(total_session_time)),
+        "is_complete": is_session_complete,
+        "daily_score": int(daily_score),
+        "active_time_sec": active_time_sec,
+        "stretch_count": stretch_count,
+        "snooze_count": snooze_count
+    })
 
-def generate_frames():
-    global tracking_active, camera_thread, output_frame, manual_session
-    if not tracking_active:
-        tracking_active = True
-        camera_thread = threading.Thread(target=tracking_loop, daemon=True)
-        camera_thread.start()
-    while tracking_active:
-        if output_frame is not None:
-            yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + output_frame + b'\r\n')
-        time.sleep(0.016)
+# === API ระบบ Login ===
+@app.route('/api/register', methods=['POST'])
+def register():
+    data = request.json
+    user = data.get('username')
+    pwd = data.get('password')
+    if not user or not pwd:
+        return jsonify({"status": "error", "message": "Missing info"}), 400
+    if user in users_db:
+        return jsonify({"status": "error", "message": "Username already exists"}), 400
+    users_db[user] = pwd
+    return jsonify({"status": "success"})
 
+@app.route('/api/login', methods=['POST'])
+def login():
+    data = request.json
+    user = data.get('username')
+    pwd = data.get('password')
+    if users_db.get(user) == pwd:
+        return jsonify({"status": "success"})
+    return jsonify({"status": "error", "message": "Invalid username or password"}), 401
+
+# API อื่นๆ ที่เหลือคงเดิม
 @app.route('/api/status')
 def get_status():
     return jsonify({
         "calib_msg": current_calib_msg, "pose_msg": current_pose_msg, "instruction": instruction_en, 
         "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
         "time_left": time_left, "total_time": max(0, int(total_session_time)), "is_complete": is_session_complete,
-        "daily_score": int(daily_score),
-        "active_time_sec": active_time_sec,
-        "stretch_count": stretch_count,
-        "snooze_count": snooze_count
+        "daily_score": int(daily_score), "active_time_sec": active_time_sec,
+        "stretch_count": stretch_count, "snooze_count": snooze_count
     })
 
 @app.route('/api/start_pose', methods=['POST'])
@@ -325,35 +343,22 @@ def calibrate():
 
 @app.route('/api/toggle_session', methods=['POST'])
 def toggle_session():
-    global tracking_active, camera_thread, app_mode
+    global tracking_active, app_mode
     global daily_score, active_time_sec, stretch_count, snooze_count 
-    
     data = request.json or {}
     action = data.get('action')
-
     if action == 'start':
-        # รับค่าเริ่มต้นจาก localStorage ของหน้าเว็บเพื่อไปประมวลผลต่อ
-        if 'init_score' in data:
-            daily_score = float(data['init_score'])
-        if 'init_active_time' in data:
-            active_time_sec = float(data['init_active_time'])
-        if 'init_stretch' in data:
-            stretch_count = int(data['init_stretch'])
-        if 'init_snooze' in data:
-            snooze_count = int(data['init_snooze'])
-
-        if not tracking_active:
-            tracking_active = True
-            camera_thread = threading.Thread(target=tracking_loop, daemon=True)
-            camera_thread.start()
+        if 'init_score' in data: daily_score = float(data['init_score'])
+        if 'init_active_time' in data: active_time_sec = float(data['init_active_time'])
+        if 'init_stretch' in data: stretch_count = int(data['init_stretch'])
+        if 'init_snooze' in data: snooze_count = int(data['init_snooze'])
+        tracking_active = True
         app_mode = "MONITORING" 
         return jsonify({"status": "started", "active": True})
-        
     elif action == 'stop':
         tracking_active = False
         app_mode = "IDLE"
         return jsonify({"status": "stopped", "active": False})
-        
     return jsonify({"status": "invalid action"}), 400
 
 @app.route('/api/session_status', methods=['GET'])
@@ -365,7 +370,6 @@ def session_status():
 def register_snooze():
     global snooze_count, daily_score
     snooze_count += 1
-    # หัก 1 คะแนน โทษฐาน Missed Intervention
     daily_score = max(0.0, daily_score - 1.0)
     return jsonify({"status": "snoozed", "score": daily_score})
 
