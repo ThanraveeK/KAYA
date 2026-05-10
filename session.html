@@ -1,12 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>KAYA - Session</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
     <script>
         tailwind.config = {
             theme: {
@@ -17,14 +16,8 @@
                             greenLight: '#9fae9a',
                             greenDark: '#7b8a76',
                             yellow: '#eddea2',
-                            grayDark: '#a6a6a6',
-                            menuLight: '#faf6eb',
-                            menuDark: '#e9dfb7'
+                            grayDark: '#a6a6a6'
                         }
-                    },
-                    fontFamily: {
-                        serif: ['"Cormorant Garamond"', 'serif'],
-                        sans: ['Nunito', 'sans-serif']
                     }
                 }
             }
@@ -38,73 +31,43 @@
     </style>
 </head>
 
-<body class="bg-kaya-bg text-gray-800 font-sans antialiased h-screen flex overflow-hidden relative">
-
+<body class="bg-kaya-bg text-gray-800 font-sans h-screen flex overflow-hidden relative">
     <aside class="w-72 bg-kaya-greenLight flex flex-col justify-between py-10 px-6 shrink-0 opacity-40">
-        <div>
-            <div class="mb-12 flex flex-col items-center text-center">
-                <h1 class="text-6xl font-serif font-bold text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark leading-none">KAYA</h1>
-                <p class="text-[11px] text-kaya-menuLight font-bold mt-1">AI-Assisted Rusie Dutton Therapy</p>
-            </div>
-            <nav class="flex flex-col gap-3">
-                <div class="flex items-center gap-4 bg-kaya-greenDark px-5 py-3 rounded-xl text-kaya-menuLight">
-                    <span class="text-xl font-bold">Dashboard</span>
-                </div>
-            </nav>
+        <div class="text-center">
+            <h1 class="text-6xl font-serif font-bold text-white leading-none">KAYA</h1>
+            <p class="text-[11px] text-white font-bold mt-1">AI-Assisted Rusie Dutton Therapy</p>
         </div>
     </aside>
 
-    <main class="flex-1 p-10 md:p-12 relative w-full opacity-40">
-        <h2 class="text-4xl font-serif font-bold text-kaya-greenDark tracking-wide mb-8">DASHBOARD OVERVIEW</h2>
-        <div class="bg-white rounded-[2rem] p-8 shadow-xl mb-8 border border-white h-32"></div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
-            <div class="bg-white rounded-[2.5rem] p-10 h-64 border border-white"></div>
-            <div class="flex flex-col gap-6">
-                <div class="bg-white rounded-[2rem] p-8 h-20 border border-white"></div>
-                <div class="bg-white rounded-[2rem] p-8 h-20 border border-white"></div>
-            </div>
-        </div>
-    </main>
-
     <div class="fixed inset-0 z-50 bg-gray-900/20 backdrop-blur-sm flex items-center justify-center p-6">
         <div class="bg-white w-full max-w-5xl h-[85vh] rounded-[3.5rem] shadow-2xl p-10 flex flex-col relative overflow-hidden transition-all duration-500">
-
             <div id="activeSessionView" class="flex flex-col h-full w-full">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 id="sessionTitle" class="text-3xl font-sans font-bold text-kaya-greenDark">Loading...</h2>
-                    <span id="timerDisplay" class="text-3xl md:text-4xl font-sans font-bold text-kaya-grayDark">02:00</span>
+                    <h2 id="sessionTitle" class="text-3xl font-bold text-kaya-greenDark">Loading...</h2>
+                    <span id="timerDisplay" class="text-3xl font-bold text-kaya-grayDark">02:00</span>
                 </div>
-
                 <div class="flex-1 flex flex-col md:flex-row gap-8 mb-6 items-center">
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
-                        <div id="breathingLabel" class="text-xl md:text-2xl font-sans font-bold text-kaya-greenDark mb-6 tracking-[0.2em] uppercase">GET READY</div>
-                        <div id="breathingCircle" class="w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] border-kaya-grayDark transition-all duration-[3000ms] ease-in-out shadow-lg bg-transparent mb-6"></div>
+                        <div id="breathingLabel" class="text-xl font-bold text-kaya-greenDark mb-6 uppercase tracking-widest">GET READY</div>
+                        <div id="breathingCircle" class="w-64 h-64 rounded-full border-[14px] border-kaya-grayDark transition-all duration-[1000ms] bg-transparent mb-6"></div>
                         <div class="flex items-center gap-2">
-                            <span class="text-kaya-grayDark text-sm uppercase tracking-widest font-bold">Phase Time:</span>
-                            <span id="breathingTimerDisplay" class="text-3xl font-sans font-bold text-kaya-greenDark">10</span>
+                            <span class="text-kaya-grayDark text-sm font-bold uppercase">Phase Time:</span>
+                            <span id="breathingTimerDisplay" class="text-3xl font-bold text-kaya-greenDark">10</span>
                         </div>
                     </div>
-
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
-                        <div class="w-full text-center mb-3">
-                            <span id="postureStatusTop" class="text-sm font-bold text-kaya-grayDark uppercase tracking-widest">EVALUATING...</span>
-                        </div>
-                        <div class="w-full h-[70%] lg:h-[80%] rounded-[2.5rem] flex items-center justify-center bg-gray-100 overflow-hidden relative shadow-inner border border-gray-200">
-                            <img src="http://localhost:5000/video_feed" class="absolute inset-0 w-full h-full object-cover" alt="Feed">
+                        <div class="w-full text-center mb-3"><span id="postureStatusTop" class="text-sm font-bold text-kaya-grayDark uppercase">EVALUATING...</span></div>
+                        <div class="w-full h-[70%] rounded-[2.5rem] bg-gray-100 overflow-hidden relative shadow-inner border border-gray-200">
+                            <img src="http://localhost:5000/video_feed" class="absolute inset-0 w-full h-full object-cover">
                         </div>
                     </div>
                 </div>
-
-                <div class="flex justify-center shrink-0">
-                    <a href="stretch.html" class="bg-kaya-greenDark text-white px-16 py-3 rounded-2xl text-xl font-bold shadow-md hover:shadow-xl transition duration-300">Exit</a>
-                </div>
+                <div class="flex justify-center"><a href="stretch.html" class="bg-kaya-greenDark text-white px-16 py-3 rounded-2xl text-xl font-bold">Exit</a></div>
             </div>
-
             <div id="successSessionView" class="hidden flex-col items-center justify-center h-full w-full text-center">
                 <h2 class="text-5xl font-serif font-bold text-kaya-greenDark mb-4">Therapy Complete!</h2>
-                <a href="dashboard.html" class="bg-kaya-greenDark text-white px-12 py-4 rounded-2xl text-xl font-bold mt-8 shadow-lg">Return to Dashboard</a>
+                <a href="dashboard.html" class="bg-kaya-greenDark text-white px-12 py-4 rounded-2xl text-xl font-bold mt-8">Return to Dashboard</a>
             </div>
-
         </div>
     </div>
 
@@ -113,28 +76,21 @@
         const sessionType = urlParams.get('type') || 'neck';
         document.getElementById('sessionTitle').innerText = sessionType === 'back' ? "Back & Spine Relief" : "Neck & Shoulder Relief";
 
-        let isPrepPhase = true;
-        let prepTimeLeft = 10; // [แก้ข้อ 1] เพิ่มเวลาเตรียมพร้อมเป็น 10 วินาที
+        let isPrep = true,
+            prepTime = 10;
+        const timerDisplay = document.getElementById('timerDisplay'),
+            bLabel = document.getElementById('breathingLabel'),
+            bCircle = document.getElementById('breathingCircle'),
+            bTimer = document.getElementById('breathingTimerDisplay'),
+            statusTop = document.getElementById('postureStatusTop');
 
-        const timerDisplay = document.getElementById('timerDisplay');
-        const breathingLabel = document.getElementById('breathingLabel');
-        const breathingCircle = document.getElementById('breathingCircle');
-        const breathingTimerDisplay = document.getElementById('breathingTimerDisplay');
-        const statusTop = document.getElementById('postureStatusTop');
-
-        function updateCircleUI(scale, colorClass) {
-            breathingCircle.style.transform = `scale(${scale})`;
-            breathingCircle.className = `w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] ${colorClass} transition-all duration-[3000ms] ease-in-out shadow-lg bg-transparent mb-6`;
-        }
-
-        // JS หยุดนับเวลาเองแล้ว! จะนับแค่ตอนเตรียมพร้อม 10 วินาทีเท่านั้น
-        const sessionCountdown = setInterval(() => {
-            if (isPrepPhase) {
-                prepTimeLeft--;
-                breathingTimerDisplay.innerText = prepTimeLeft;
-                if (prepTimeLeft <= 0) {
-                    isPrepPhase = false;
-                    clearInterval(sessionCountdown); // หยุด Loop ของ JS ปล่อยให้ Python คุมแทน
+        const prepLoop = setInterval(() => {
+            if (isPrep) {
+                prepTime--;
+                bTimer.innerText = prepTime;
+                if (prepTime <= 0) {
+                    isPrep = false;
+                    clearInterval(prepLoop);
                     fetch('http://localhost:5000/api/start_pose', {
                         method: 'POST',
                         headers: {
@@ -144,69 +100,43 @@
                             type: sessionType
                         })
                     });
-                    startStateListener();
+                    startSync();
                 }
             }
         }, 1000);
 
-        function startStateListener() {
+        function startSync() {
             setInterval(() => {
-                fetch('http://localhost:5000/api/status')
-                    .then(res => res.json())
-                    .then(data => {
-                        // [แก้ข้อ 4] เช็คว่าหมดเวลาจริงๆ จาก Python ถึงจะจบเกม
-                        if (data.is_complete) {
-                            document.getElementById('activeSessionView').classList.add('hidden');
-                            document.getElementById('successSessionView').classList.replace('hidden', 'flex');
-                            return;
-                        }
+                fetch('http://localhost:5000/api/status').then(res => res.json()).then(data => {
+                    if (data.is_complete) {
+                        document.getElementById('activeSessionView').classList.add('hidden');
+                        document.getElementById('successSessionView').classList.replace('hidden', 'flex');
+                        return;
+                    }
+                    if (data.total_time !== undefined) {
+                        let min = Math.floor(data.total_time / 60),
+                            sec = data.total_time % 60;
+                        timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+                    }
+                    bLabel.innerText = data.breathing;
+                    bTimer.innerText = data.time_left;
+                    if (data.breathing === "PAUSED") {
+                        bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-grayDark bg-transparent mb-6";
+                        bCircle.classList.remove('glow-active');
+                    } else if (data.breathing === "INHALE") {
+                        bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenLight bg-transparent mb-6 scale-110";
+                        bCircle.classList.remove('glow-active');
+                    } else if (data.breathing === "HOLD") {
+                        if (data.pose_msg === "PERFECT!") bCircle.classList.add('glow-active');
+                        else bCircle.classList.remove('glow-active');
+                    } else if (data.breathing === "EXHALE") {
+                        bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenDark bg-transparent mb-6 scale-90";
+                        bCircle.classList.remove('glow-active');
+                    }
 
-                        // [แก้ข้อ 2] ดึงเวลารวมมาจาก Python เวลาจะหยุดจริงตอนปิดกล้อง
-                        if (data.total_time !== undefined) {
-                            let min = Math.floor(data.total_time / 60);
-                            let sec = data.total_time % 60;
-                            timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-                        }
-
-                        if (data.breathing) {
-                            breathingLabel.innerText = data.breathing;
-                            breathingTimerDisplay.innerText = data.time_left;
-
-                            if (data.breathing === "PAUSED") {
-                                updateCircleUI(1.0, 'border-kaya-grayDark');
-                                breathingCircle.classList.remove('glow-active');
-                            } else if (data.breathing === "INHALE") {
-                                updateCircleUI(1.15, 'border-kaya-greenLight');
-                                breathingCircle.classList.remove('glow-active');
-                            } else if (data.breathing === "HOLD") {
-                                updateCircleUI(1.15, 'border-kaya-yellow');
-                                if (data.pose_msg === "PERFECT!") {
-                                    breathingCircle.classList.add('glow-active');
-                                } else {
-                                    breathingCircle.classList.remove('glow-active');
-                                }
-                            } else if (data.breathing === "EXHALE") {
-                                updateCircleUI(0.85, 'border-kaya-greenDark');
-                                breathingCircle.classList.remove('glow-active');
-                            }
-                        }
-
-                        if (data.pose_msg && data.instruction) {
-                            statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
-
-                            if (data.pose_msg === "PERFECT!") {
-                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-kaya-greenDark';
-                            } else if (data.pose_msg === "STAY IN FRAME TO RESUME") {
-                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-kaya-grayDark';
-                                statusTop.innerText = data.pose_msg;
-                            } else {
-                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-red-500';
-                            }
-
-                        } else if (data.calib_msg) {
-                            statusTop.innerText = data.calib_msg;
-                        }
-                    }).catch(e => console.log(e));
+                    statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
+                    statusTop.className = `text-sm font-bold uppercase ${data.pose_msg === 'PERFECT!' ? 'text-kaya-greenDark' : (data.pose_msg.includes('FRAME') ? 'text-kaya-grayDark' : 'text-red-500')}`;
+                });
             }, 200);
         }
     </script>

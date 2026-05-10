@@ -38,24 +38,23 @@ STATIC_TIME_LIMIT = 5.0
 fhp_start_time = None
 rounded_start_time = None
 static_start_time = None
-static_anchor = None
 
-# โหมดกายภาพ 10 ขั้นตอน
+# โหมดกายภาพ
 breathing_state = "IDLE" 
 current_exercise_type = "neck"
 current_step_idx = 0
-current_phase = 1 
+current_phase = 1 # 1: Inhale, 2: Hold, 3: Exhale
 time_left = 3
 instruction_en = "Get Ready"
 target_breathing = "INHALE"
 
-# ตัวแปรสำหรับระบบเวลาอัจฉริยะ 
+# ตัวแปรเวลาอัจฉริยะ
 last_frame_time = 0.0
 elapsed_phase = 0.0
 total_session_time = 120.0
 is_session_complete = False
 
-# ลำดับท่าทาง 10 ขั้นตอน
+# ลำดับท่าทาง
 NECK_STEPS = [
     {"step": 1, "inst": "Clasp hands at the solar plexus", "type": "clasp"},
     {"step": 2, "inst": "Extend arms to the LEFT", "type": "left"},
@@ -70,8 +69,10 @@ NECK_STEPS = [
 ]
 
 BACK_STEPS = [
-    {"step": 1, "inst": "Twist torso and look back", "type": "back"},
-    {"step": 2, "inst": "Release and breathe", "type": "rest"},
+    {"step": 1, "inst": "Inhale: Left hand on waist, turn head fully LEFT", "type": "back_left"},
+    {"step": 2, "inst": "Exhale: Return to READY pose", "type": "ready"},
+    {"step": 3, "inst": "Inhale: Right hand on waist, turn head fully RIGHT", "type": "back_right"},
+    {"step": 4, "inst": "Exhale: Return to READY pose", "type": "ready"},
 ]
 
 def calculate_angle(a, b, c):
@@ -82,34 +83,28 @@ def calculate_angle(a, b, c):
 
 def draw_target_hologram(frame, pose_type, cx, cy, scale, color):
     pts = {}
-    # [แก้ข้อ 3] ปรับระยะ Skeleton ท่า Clasp ให้อยู่ระดับหน้าอก และข้อมือ/ศอกไม่กางหลุดเฟรม
     if pose_type == 'clasp':
-        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.7, 0.4), 'R_EL': (0.7, 0.4), 'L_WR': (-0.1, 0.35), 'R_WR': (0.1, 0.35)}
+        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.6, 0.4), 'R_EL': (0.6, 0.4), 'L_WR': (-0.05, 0.4), 'R_WR': (0.05, 0.4)}
     elif pose_type == 'left':
-        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-1.3, 0.1), 'R_EL': (0, 0.5), 'L_WR': (-1.8, 0), 'R_WR': (-1.8, 0)}
+        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-1.1, 0.1), 'R_EL': (0, 0.5), 'L_WR': (-1.4, 0), 'R_WR': (-1.4, 0)}
     elif pose_type == 'right':
-        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (0, 0.5), 'R_EL': (1.3, 0.1), 'L_WR': (1.8, 0), 'R_WR': (1.8, 0)}
-    elif pose_type == 'forward':
-        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.8, 0.4), 'R_EL': (0.8, 0.4), 'L_WR': (0, 0.2), 'R_WR': (0, 0.2)}
-    elif pose_type == 'upward':
-        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.6, -1.0), 'R_EL': (0.6, -1.0), 'L_WR': (0, -1.8), 'R_WR': (0, -1.8)}
-    elif pose_type == 'crown':
-        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-1.1, -0.4), 'R_EL': (1.1, -0.4), 'L_WR': (0, -0.7), 'R_WR': (0, -0.7)}
-    elif pose_type == 'back':
-        pts = {'L_SH': (-0.3, 0), 'R_SH': (0.3, 0), 'L_EL': (-0.5, 0.8), 'R_EL': (0.8, 0.5), 'L_WR': (-0.4, 1.5), 'R_WR': (1.2, 0.8)}
-    elif pose_type == 'rest':
-        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.6, 0.8), 'R_EL': (0.6, 0.8), 'L_WR': (0, 0.6), 'R_WR': (0, 0.6)}
+        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (0, 0.5), 'R_EL': (1.1, 0.1), 'L_WR': (1.4, 0), 'R_WR': (1.4, 0)}
+    elif pose_type == 'back_left':
+        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.8, 0.5), 'R_EL': (0.6, 0.8), 'L_WR': (-0.6, 0.9), 'R_WR': (0.6, 1.2)}
+        pts['HEAD'] = (-0.2, -0.7)
+    elif pose_type == 'back_right':
+        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.6, 0.8), 'R_EL': (0.8, 0.5), 'L_WR': (-0.6, 1.2), 'R_WR': (0.6, 0.9)}
+        pts['HEAD'] = (0.2, -0.7)
+    elif pose_type == 'ready':
+        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.5, 0.5), 'R_EL': (0.5, 0.5), 'L_WR': (-0.5, 1.0), 'R_WR': (0.5, 1.0)}
     
     if not pts: return
-    pts['HEAD'], pts['SPINE'] = (0, -0.7), (0, 1.2)
-    
+    if 'HEAD' not in pts: pts['HEAD'] = (0, -0.7)
+    pts['SPINE'] = (0, 1.2)
     px_pts = {k: (int(cx + v[0] * scale), int(cy + v[1] * scale)) for k, v in pts.items()}
-    
     for start, end in [('L_SH', 'L_EL'), ('L_EL', 'L_WR'), ('R_SH', 'R_EL'), ('R_EL', 'R_WR'), ('L_SH', 'R_SH')]:
         cv2.line(frame, px_pts[start], px_pts[end], color, 8)
-    
     cv2.circle(frame, px_pts['HEAD'], int(scale * 0.4), color, 8)
-    
     for k, v in px_pts.items():
         if k != 'HEAD':
             cv2.circle(frame, v, 10, (255, 255, 255), -1)
@@ -118,7 +113,7 @@ def draw_target_hologram(frame, pose_type, cx, cy, scale, color):
 def tracking_loop():
     global tracking_active, output_frame, is_calibrating, calibration_start_time, baseline_shoulder_width, calibration_data_x
     global breathing_state, current_exercise_type, current_step_idx, current_phase, time_left, instruction_en, target_breathing, current_calib_msg, current_pose_msg
-    global fhp_start_time, rounded_start_time, static_start_time, static_anchor
+    global fhp_start_time, rounded_start_time, static_start_time
     global last_frame_time, elapsed_phase, total_session_time, is_session_complete, app_mode
     
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
@@ -130,22 +125,15 @@ def tracking_loop():
         while tracking_active:
             ret, frame = cap.read()
             current_time = time.time()
-            
-            if last_frame_time == 0: 
-                last_frame_time = current_time
+            if last_frame_time == 0: last_frame_time = current_time
             dt = current_time - last_frame_time
             last_frame_time = current_time
-            
-            if dt > 1.0:
-                dt = 0
-                
-            if not ret: 
-                continue
+            if dt > 1.0: dt = 0
+            if not ret: continue
                 
             frame = cv2.flip(frame, 1)
             results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
             h, w, _ = frame.shape
-            
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             brightness = np.mean(gray)
 
@@ -159,17 +147,15 @@ def tracking_loop():
                 ls, rs = lm[11], lm[12]
                 le, re = lm[13], lm[14]
                 lw, rw = lm[15], lm[16]
-                nose, left_ear, right_ear = lm[0], lm[7], lm[8]
-                curr_width = abs(ls.x - rs.x)
+                lh, rh = lm[23], lm[24]
+                nose = lm[0]
                 
+                curr_width = abs(ls.x - rs.x)
                 core_visibility = min(nose.visibility, ls.visibility, rs.visibility)
 
-                if brightness < 40:
-                    current_calib_msg = "Low light detected"
-                elif curr_width > 0.45:
-                    current_calib_msg = "Please move back slightly"
-                elif curr_width < 0.15:
-                    current_calib_msg = "Please move closer"
+                if brightness < 40: current_calib_msg = "Low light detected"
+                elif curr_width > 0.45: current_calib_msg = "Please move back slightly"
+                elif curr_width < 0.15: current_calib_msg = "Please move closer"
                 else:
                     if is_calibrating:
                         elapsed = current_time - calibration_start_time
@@ -177,119 +163,67 @@ def tracking_loop():
                             calibration_data_x.append(curr_width)
                             current_calib_msg = f"Calibrating... {int(calibration_duration - elapsed) + 1}s"
                         else:
-                            if len(calibration_data_x) > 0:
-                                baseline_shoulder_width = sum(calibration_data_x) / len(calibration_data_x)
+                            if len(calibration_data_x) > 0: baseline_shoulder_width = sum(calibration_data_x) / len(calibration_data_x)
                             is_calibrating = False
-                            calibration_data_x = []
+                            app_mode = "IDLE" # กลับสู่โหมดว่างหลัง Calibrate เสร็จ ไม่เริ่ม Session ทันที
                             current_calib_msg = "Calibration Complete"
-                    else:
-                        current_calib_msg = "All set!"
+                    else: current_calib_msg = "All set!"
 
                 for i in range(11): lm[i].visibility = 0
                 mp_drawing.draw_landmarks(frame, results.pose_landmarks, BODY_CONNECTIONS)
 
                 if baseline_shoulder_width and not is_calibrating:
                     if breathing_state == "IDLE":
-                        active_warnings = []
-                        ear_y = (left_ear.y + right_ear.y) / 2.0
-                        ear_z = (left_ear.z + right_ear.z) / 2.0
-                        shoulder_y = (ls.y + rs.y) / 2.0
-                        shoulder_z = (ls.z + rs.z) / 2.0
-                        shoulder_x = (ls.x + rs.x) / 2.0
-
-                        delta_y = shoulder_y - ear_y 
-                        delta_z = shoulder_z - ear_z 
-                        cva_angle = math.degrees(math.atan2(delta_y, delta_z)) if delta_z > 0 else 90.0
-
-                        if cva_angle < 65.0:
-                            if fhp_start_time is None: fhp_start_time = current_time
-                            elif (current_time - fhp_start_time) >= FHP_TIME_LIMIT: active_warnings.append("Forward Head")
-                        else: fhp_start_time = None 
-
+                        # Monitoring Mode
                         if curr_width < (baseline_shoulder_width * 0.95):
                             if rounded_start_time is None: rounded_start_time = current_time
-                            elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: active_warnings.append("Rounded Shoulders")
+                            elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: current_pose_msg = "Rounded Shoulders"
                         else: rounded_start_time = None
-
-                        current_pose_msg = " | ".join(active_warnings) if active_warnings else ""
                     elif app_mode == "SESSION":
                         seq = NECK_STEPS if current_exercise_type == "neck" else BACK_STEPS
-                        
-                        if current_step_idx >= len(seq):
-                            current_step_idx = 0 
-                            
+                        if current_step_idx >= len(seq): current_step_idx = 0 
                         step_info = seq[current_step_idx]
                         instruction_en = step_info["inst"]
                         pt = step_info["type"]
                         
-                        # ถ้าร่างกายหลุดออกนอกกล้อง ให้หยุดเวลา (ไม่เอา dt ไปลบ)
                         if core_visibility < 0.5:
                             target_breathing = "PAUSED"
                             current_pose_msg = "STAY IN FRAME TO RESUME"
                         else:
                             total_session_time -= dt
                             elapsed_phase += dt
-                            
-                            # เคลียร์สถานะทั้งหมดเมื่อจบเซสชัน เพื่อไม่ให้ทะลุไปหน้าอื่น
                             if total_session_time <= 0:
                                 is_session_complete = True
                                 breathing_state = "IDLE"
-                                app_mode = "IDLE" 
                             
+                            # 3-Phase Logic
                             if current_phase == 1:
                                 target_breathing = "INHALE"
-                                phase_duration = 3
-                                if elapsed_phase >= phase_duration:
-                                    current_phase = 2
-                                    elapsed_phase = 0
+                                if elapsed_phase >= 3: current_phase, elapsed_phase = 2, 0
                             elif current_phase == 2:
                                 target_breathing = "HOLD"
-                                phase_duration = 5
-                                if elapsed_phase >= phase_duration:
-                                    current_phase = 3
-                                    elapsed_phase = 0
+                                if elapsed_phase >= 7: current_phase, elapsed_phase = 3, 0 # ปรับเป็น 7 วินาที
                             elif current_phase == 3:
                                 target_breathing = "EXHALE"
-                                phase_duration = 3
-                                if elapsed_phase >= phase_duration:
-                                    current_phase = 1
-                                    current_step_idx += 1
-                                    elapsed_phase = 0
+                                if elapsed_phase >= 3: current_phase, elapsed_phase, current_step_idx = 1, 0, current_step_idx + 1
 
-                            time_left = max(0, int(phase_duration - elapsed_phase))
+                            time_limit = 7 if current_phase == 2 else 3
+                            time_left = max(0, int(time_limit - elapsed_phase))
 
+                            # Pose Detection
                             is_perfect = False
-                            wrist_dist = abs(lw.x - rw.x)
-                            hands_clasped = wrist_dist < 0.12
-                            la = calculate_angle([ls.x, ls.y], [le.x, le.y], [lw.x, lw.y])
-                            ra = calculate_angle([rs.x, rs.y], [re.x, re.y], [rw.x, rw.y])
-
                             if pt == "clasp":
-                                if hands_clasped and lw.y > ls.y - 0.1: is_perfect = True
-                            elif pt == "left":
-                                if hands_clasped and lw.x < ls.x - 0.15: is_perfect = True
-                            elif pt == "right":
-                                if hands_clasped and rw.x > rs.x + 0.15: is_perfect = True
-                            elif pt == "forward":
-                                if hands_clasped and la > 130 and ra > 130: is_perfect = True
-                            elif pt == "upward":
-                                if hands_clasped and lw.y < nose.y and la > 130: is_perfect = True
-                            elif pt == "crown":
-                                if hands_clasped and lw.y < ls.y and la < 110: is_perfect = True
-                            elif pt == "back":
-                                dx = abs(rs.x - ls.x)
-                                dz = abs(rs.z - ls.z)
-                                twist_angle = math.degrees(math.atan2(dz, dx + 1e-6))
-                                chest_y = (ls.y + rs.y) / 2.0
-                                if twist_angle >= 12 and ((lw.y > chest_y) or (rw.y > chest_y)): is_perfect = True
-                            elif pt == "rest":
-                                is_perfect = True 
+                                if abs(lw.x - rw.x) < 0.12 and lw.y > ls.y - 0.1: is_perfect = True
+                            elif pt == "back_left":
+                                if lw.y > ls.y and lw.y < lh.y and nose.x < (ls.x + rs.x)/2 - 0.05: is_perfect = True
+                            elif pt == "back_right":
+                                if rw.y > rs.y and rw.y < rh.y and nose.x > (ls.x + rs.x)/2 + 0.05: is_perfect = True
+                            elif pt == "ready":
+                                # ท่าเตรียม: มือวางข้างลำตัว ไม่ยกขึ้นสูง และอยู่ใกล้ระนาบไหล่
+                                if lw.y > ls.y and rw.y > rs.y and abs(lw.x - ls.x) < 0.15: is_perfect = True
 
                             cx, cy = int((ls.x + rs.x)/2 * w), int((ls.y + rs.y)/2 * h)
-                            scale = baseline_shoulder_width * w
-                            color = (0, 255, 0) if is_perfect else (0, 165, 255)
-                            draw_target_hologram(frame, pt, cx, cy, scale, color)
-
+                            draw_target_hologram(frame, pt, cx, cy, baseline_shoulder_width * w, (0, 255, 0) if is_perfect else (0, 165, 255))
                             current_pose_msg = "PERFECT!" if is_perfect else "ADJUST POSE"
 
             ret, buffer = cv2.imencode('.jpg', frame)
@@ -303,32 +237,21 @@ def video_feed():
 
 def generate_frames():
     global tracking_active, camera_thread, output_frame, manual_session
-    started_by_feed = False
     if not tracking_active:
         tracking_active = True
-        started_by_feed = True
         camera_thread = threading.Thread(target=tracking_loop, daemon=True)
         camera_thread.start()
-    try:
-        while tracking_active:
-            if output_frame is not None:
-                yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + output_frame + b'\r\n')
-            time.sleep(0.016)
-    finally:
-        if started_by_feed and not manual_session:
-            tracking_active = False
+    while tracking_active:
+        if output_frame is not None:
+            yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + output_frame + b'\r\n')
+        time.sleep(0.016)
 
 @app.route('/api/status')
 def get_status():
-    global target_breathing
     return jsonify({
-        "calib_msg": current_calib_msg, 
-        "pose_msg": current_pose_msg, 
-        "instruction": instruction_en, 
+        "calib_msg": current_calib_msg, "pose_msg": current_pose_msg, "instruction": instruction_en, 
         "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
-        "time_left": time_left,
-        "total_time": max(0, int(total_session_time)),
-        "is_complete": is_session_complete
+        "time_left": time_left, "total_time": max(0, int(total_session_time)), "is_complete": is_session_complete
     })
 
 @app.route('/api/start_pose', methods=['POST'])
@@ -337,54 +260,45 @@ def start_pose():
     global elapsed_phase, total_session_time, last_frame_time, is_session_complete
     data = request.json or {}
     current_exercise_type = data.get('type', 'neck')
-    
-    app_mode = "SESSION"
-    breathing_state = "ACTIVE"
-    current_step_idx = 0
-    current_phase = 1
-    elapsed_phase = 0.0
-    total_session_time = 120.0
-    last_frame_time = time.time()
-    is_session_complete = False
+    app_mode, breathing_state, current_step_idx, current_phase, elapsed_phase, total_session_time, last_frame_time, is_session_complete = "SESSION", "ACTIVE", 0, 1, 0.0, 120.0, time.time(), False
     return jsonify({"status": "success"})
-
-@app.route('/api/toggle_session', methods=['POST'])
-def toggle_session():
-    global tracking_active, camera_thread, manual_session
-    data = request.json or {}
-    action = data.get('action')
-
-    if action == 'start':
-        manual_session = True
-        if not tracking_active:
-            tracking_active = True
-            camera_thread = threading.Thread(target=tracking_loop, daemon=True)
-            camera_thread.start()
-        return jsonify({"status": "started"})
-        
-    elif action == 'stop':
-        manual_session = False
-        tracking_active = False
-        return jsonify({"status": "stopped"})
-        
-    return jsonify({"status": "error"})
 
 @app.route('/api/calibrate', methods=['POST'])
 def calibrate():
-    global is_calibrating, calibration_start_time, calibration_data_x, baseline_shoulder_width
-    global breathing_state, app_mode
-
-    breathing_state = "IDLE" 
-    app_mode = "CALIBRATE"
-
+    global is_calibrating, calibration_start_time, calibration_data_x, baseline_shoulder_width, breathing_state, app_mode
+    breathing_state, app_mode = "IDLE", "CALIBRATE"
     if not is_calibrating:
-        is_calibrating = True
-        calibration_start_time = time.time()
+        is_calibrating, calibration_start_time = True, time.time()
         calibration_data_x.clear()
         baseline_shoulder_width = None
         return jsonify({"status": "success"})
     return jsonify({"status": "ignored"})
 
+@app.route('/api/toggle_session', methods=['POST'])
+def toggle_session():
+    global tracking_active, camera_thread, app_mode
+    data = request.json or {}
+    action = data.get('action')
+
+    if action == 'start':
+        if not tracking_active:
+            tracking_active = True
+            camera_thread = threading.Thread(target=tracking_loop, daemon=True)
+            camera_thread.start()
+        app_mode = "MONITORING" 
+        return jsonify({"status": "started", "active": True})
+        
+    elif action == 'stop':
+        tracking_active = False
+        app_mode = "IDLE"
+        return jsonify({"status": "stopped", "active": False})
+        
+    return jsonify({"status": "invalid action"}), 400
+
+@app.route('/api/session_status', methods=['GET'])
+def session_status():
+    global tracking_active
+    return jsonify({"active": tracking_active})
+
 if __name__ == '__main__':
-    print(">> Backend Server Running at http://localhost:5000")
     app.run(host='0.0.0.0', port=5000, debug=True)
