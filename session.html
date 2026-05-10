@@ -30,6 +30,12 @@
             }
         }
     </script>
+    <style>
+        .glow-active {
+            filter: drop-shadow(0 0 25px #eddea2);
+            border-color: #eddea2 !important;
+        }
+    </style>
 </head>
 
 <body class="bg-kaya-bg text-gray-800 font-sans antialiased h-screen flex overflow-hidden relative">
@@ -72,10 +78,10 @@
                 <div class="flex-1 flex flex-col md:flex-row gap-8 mb-6 items-center">
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
                         <div id="breathingLabel" class="text-xl md:text-2xl font-sans font-bold text-kaya-greenDark mb-6 tracking-[0.2em] uppercase">GET READY</div>
-                        <div id="breathingCircle" class="w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] border-kaya-grayDark transition-all duration-1000 ease-in-out shadow-lg bg-transparent mb-6"></div>
+                        <div id="breathingCircle" class="w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] border-kaya-grayDark transition-all duration-[3000ms] ease-in-out shadow-lg bg-transparent mb-6"></div>
                         <div class="flex items-center gap-2">
-                            <span class="text-kaya-grayDark text-sm uppercase tracking-widest font-bold">Step Time:</span>
-                            <span id="breathingTimerDisplay" class="text-3xl font-sans font-bold text-kaya-greenDark">3</span>
+                            <span class="text-kaya-grayDark text-sm uppercase tracking-widest font-bold">Phase Time:</span>
+                            <span id="breathingTimerDisplay" class="text-3xl font-sans font-bold text-kaya-greenDark">10</span>
                         </div>
                     </div>
 
@@ -108,8 +114,7 @@
         document.getElementById('sessionTitle').innerText = sessionType === 'back' ? "Back & Spine Relief" : "Neck & Shoulder Relief";
 
         let isPrepPhase = true;
-        let prepTimeLeft = 3;
-        let totalTimeLeft = 120; // 2 นาที
+        let prepTimeLeft = 10; // [แก้ข้อ 1] เพิ่มเวลาเตรียมพร้อมเป็น 10 วินาที
 
         const timerDisplay = document.getElementById('timerDisplay');
         const breathingLabel = document.getElementById('breathingLabel');
@@ -119,16 +124,17 @@
 
         function updateCircleUI(scale, colorClass) {
             breathingCircle.style.transform = `scale(${scale})`;
-            breathingCircle.className = `w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] ${colorClass} transition-all duration-1000 ease-in-out shadow-lg bg-transparent mb-6`;
+            breathingCircle.className = `w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] ${colorClass} transition-all duration-[3000ms] ease-in-out shadow-lg bg-transparent mb-6`;
         }
 
-        // ระบบนับถอยหลังรวมและเตรียมพร้อม
+        // JS หยุดนับเวลาเองแล้ว! จะนับแค่ตอนเตรียมพร้อม 10 วินาทีเท่านั้น
         const sessionCountdown = setInterval(() => {
             if (isPrepPhase) {
                 prepTimeLeft--;
                 breathingTimerDisplay.innerText = prepTimeLeft;
                 if (prepTimeLeft <= 0) {
                     isPrepPhase = false;
+                    clearInterval(sessionCountdown); // หยุด Loop ของ JS ปล่อยให้ Python คุมแทน
                     fetch('http://localhost:5000/api/start_pose', {
                         method: 'POST',
                         headers: {
@@ -140,14 +146,6 @@
                     });
                     startStateListener();
                 }
-            } else {
-                // นับเวลา Session รวม (02:00)
-                totalTimeLeft--;
-                let min = Math.floor(totalTimeLeft / 60);
-                let sec = totalTimeLeft % 60;
-                timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-
-                if (totalTimeLeft <= 0) clearInterval(sessionCountdown);
             }
         }, 1000);
 
@@ -156,21 +154,57 @@
                 fetch('http://localhost:5000/api/status')
                     .then(res => res.json())
                     .then(data => {
+                        // [แก้ข้อ 4] เช็คว่าหมดเวลาจริงๆ จาก Python ถึงจะจบเกม
                         if (data.is_complete) {
                             document.getElementById('activeSessionView').classList.add('hidden');
                             document.getElementById('successSessionView').classList.replace('hidden', 'flex');
                             return;
                         }
+
+                        // [แก้ข้อ 2] ดึงเวลารวมมาจาก Python เวลาจะหยุดจริงตอนปิดกล้อง
+                        if (data.total_time !== undefined) {
+                            let min = Math.floor(data.total_time / 60);
+                            let sec = data.total_time % 60;
+                            timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+                        }
+
                         if (data.breathing) {
                             breathingLabel.innerText = data.breathing;
-                            breathingTimerDisplay.innerText = data.time_left; // เวลาค้างแต่ละท่า
-                            if (data.breathing === "INHALE") updateCircleUI(1.08, 'border-kaya-greenLight');
-                            else if (data.breathing === "HOLD") updateCircleUI(1.08, 'border-kaya-yellow');
-                            else if (data.breathing === "EXHALE") updateCircleUI(0.92, 'border-kaya-greenDark');
+                            breathingTimerDisplay.innerText = data.time_left;
+
+                            if (data.breathing === "PAUSED") {
+                                updateCircleUI(1.0, 'border-kaya-grayDark');
+                                breathingCircle.classList.remove('glow-active');
+                            } else if (data.breathing === "INHALE") {
+                                updateCircleUI(1.15, 'border-kaya-greenLight');
+                                breathingCircle.classList.remove('glow-active');
+                            } else if (data.breathing === "HOLD") {
+                                updateCircleUI(1.15, 'border-kaya-yellow');
+                                if (data.pose_msg === "PERFECT!") {
+                                    breathingCircle.classList.add('glow-active');
+                                } else {
+                                    breathingCircle.classList.remove('glow-active');
+                                }
+                            } else if (data.breathing === "EXHALE") {
+                                updateCircleUI(0.85, 'border-kaya-greenDark');
+                                breathingCircle.classList.remove('glow-active');
+                            }
                         }
-                        if (data.pose_msg) {
-                            statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : "");
-                            statusTop.className = `text-sm font-bold uppercase tracking-widest ${data.pose_msg === "PERFECT!" ? 'text-kaya-greenDark' : 'text-red-500'}`;
+
+                        if (data.pose_msg && data.instruction) {
+                            statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
+
+                            if (data.pose_msg === "PERFECT!") {
+                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-kaya-greenDark';
+                            } else if (data.pose_msg === "STAY IN FRAME TO RESUME") {
+                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-kaya-grayDark';
+                                statusTop.innerText = data.pose_msg;
+                            } else {
+                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-red-500';
+                            }
+
+                        } else if (data.calib_msg) {
+                            statusTop.innerText = data.calib_msg;
                         }
                     }).catch(e => console.log(e));
             }, 200);

@@ -29,6 +29,8 @@ manual_session = False
 camera_thread = None
 output_frame = None
 
+app_mode = "IDLE"
+
 # โหมดออฟฟิศซินโดรม
 FHP_TIME_LIMIT = 2.0       
 ROUNDED_TIME_LIMIT = 2.0   
@@ -42,12 +44,12 @@ static_anchor = None
 breathing_state = "IDLE" 
 current_exercise_type = "neck"
 current_step_idx = 0
-current_phase = 1 # 1: Inhale, 2: Hold, 3: Exhale
+current_phase = 1 
 time_left = 3
 instruction_en = "Get Ready"
 target_breathing = "INHALE"
 
-# ตัวแปรสำหรับระบบเวลาอัจฉริยะ (อิงจากเฟรมภาพ)
+# ตัวแปรสำหรับระบบเวลาอัจฉริยะ 
 last_frame_time = 0.0
 elapsed_phase = 0.0
 total_session_time = 120.0
@@ -80,8 +82,9 @@ def calculate_angle(a, b, c):
 
 def draw_target_hologram(frame, pose_type, cx, cy, scale, color):
     pts = {}
+    # [แก้ข้อ 3] ปรับระยะ Skeleton ท่า Clasp ให้อยู่ระดับหน้าอก และข้อมือ/ศอกไม่กางหลุดเฟรม
     if pose_type == 'clasp':
-        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.8, 0.6), 'R_EL': (0.8, 0.6), 'L_WR': (-0.05, 0.6), 'R_WR': (0.05, 0.6)}
+        pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-0.7, 0.4), 'R_EL': (0.7, 0.4), 'L_WR': (-0.1, 0.35), 'R_WR': (0.1, 0.35)}
     elif pose_type == 'left':
         pts = {'L_SH': (-0.5, 0), 'R_SH': (0.5, 0), 'L_EL': (-1.3, 0.1), 'R_EL': (0, 0.5), 'L_WR': (-1.8, 0), 'R_WR': (-1.8, 0)}
     elif pose_type == 'right':
@@ -116,7 +119,7 @@ def tracking_loop():
     global tracking_active, output_frame, is_calibrating, calibration_start_time, baseline_shoulder_width, calibration_data_x
     global breathing_state, current_exercise_type, current_step_idx, current_phase, time_left, instruction_en, target_breathing, current_calib_msg, current_pose_msg
     global fhp_start_time, rounded_start_time, static_start_time, static_anchor
-    global last_frame_time, elapsed_phase, total_session_time, is_session_complete
+    global last_frame_time, elapsed_phase, total_session_time, is_session_complete, app_mode
     
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -209,7 +212,7 @@ def tracking_loop():
                         else: rounded_start_time = None
 
                         current_pose_msg = " | ".join(active_warnings) if active_warnings else ""
-                    else:
+                    elif app_mode == "SESSION":
                         seq = NECK_STEPS if current_exercise_type == "neck" else BACK_STEPS
                         
                         if current_step_idx >= len(seq):
@@ -219,6 +222,7 @@ def tracking_loop():
                         instruction_en = step_info["inst"]
                         pt = step_info["type"]
                         
+                        # ถ้าร่างกายหลุดออกนอกกล้อง ให้หยุดเวลา (ไม่เอา dt ไปลบ)
                         if core_visibility < 0.5:
                             target_breathing = "PAUSED"
                             current_pose_msg = "STAY IN FRAME TO RESUME"
@@ -226,10 +230,11 @@ def tracking_loop():
                             total_session_time -= dt
                             elapsed_phase += dt
                             
-                            # [แก้ไขที่ 1] ปิดสถานะกายภาพทันทีเมื่อครบ 2 นาที เพื่อไม่ให้ค้างไปถึงหน้า Calibrate
+                            # เคลียร์สถานะทั้งหมดเมื่อจบเซสชัน เพื่อไม่ให้ทะลุไปหน้าอื่น
                             if total_session_time <= 0:
                                 is_session_complete = True
                                 breathing_state = "IDLE"
+                                app_mode = "IDLE" 
                             
                             if current_phase == 1:
                                 target_breathing = "INHALE"
@@ -322,20 +327,21 @@ def get_status():
         "instruction": instruction_en, 
         "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
         "time_left": time_left,
-        "total_time": max(0, int(total_session_time)), 
+        "total_time": max(0, int(total_session_time)),
         "is_complete": is_session_complete
     })
 
 @app.route('/api/start_pose', methods=['POST'])
 def start_pose():
-    global breathing_state, current_exercise_type, current_step_idx, current_phase
+    global breathing_state, current_exercise_type, current_step_idx, current_phase, app_mode
     global elapsed_phase, total_session_time, last_frame_time, is_session_complete
     data = request.json or {}
     current_exercise_type = data.get('type', 'neck')
+    
+    app_mode = "SESSION"
     breathing_state = "ACTIVE"
     current_step_idx = 0
     current_phase = 1
-    
     elapsed_phase = 0.0
     total_session_time = 120.0
     last_frame_time = time.time()
@@ -366,10 +372,10 @@ def toggle_session():
 @app.route('/api/calibrate', methods=['POST'])
 def calibrate():
     global is_calibrating, calibration_start_time, calibration_data_x, baseline_shoulder_width
-    global breathing_state 
-    
-    # [แก้ไขที่ 2] บังคับปิดโหมดกายภาพทันทีที่กด Calibrate เพื่อให้ Skeleton หายไป
-    breathing_state = "IDLE"
+    global breathing_state, app_mode
+
+    breathing_state = "IDLE" 
+    app_mode = "CALIBRATE"
 
     if not is_calibrating:
         is_calibrating = True
