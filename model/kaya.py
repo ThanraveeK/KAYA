@@ -68,11 +68,10 @@ NECK_STEPS = [
     {"step": 10, "inst": "Clasp hands at the solar plexus", "type": "clasp"},
 ]
 
+# กลับมาใช้ 2 สเต็ปหลัก เพราะจังหวะกลับท่าเตรียมจะถูกผูกกับตอน Exhale แทน
 BACK_STEPS = [
-    {"step": 1, "inst": "Inhale: Left hand on waist, turn head fully LEFT", "type": "back_left"},
-    {"step": 2, "inst": "Exhale: Return to READY pose", "type": "ready"},
-    {"step": 3, "inst": "Inhale: Right hand on waist, turn head fully RIGHT", "type": "back_right"},
-    {"step": 4, "inst": "Exhale: Return to READY pose", "type": "ready"},
+    {"step": 1, "inst": "Left hand on waist, turn head fully LEFT", "type": "back_left"},
+    {"step": 2, "inst": "Right hand on waist, turn head fully RIGHT", "type": "back_right"},
 ]
 
 def calculate_angle(a, b, c):
@@ -165,7 +164,7 @@ def tracking_loop():
                         else:
                             if len(calibration_data_x) > 0: baseline_shoulder_width = sum(calibration_data_x) / len(calibration_data_x)
                             is_calibrating = False
-                            app_mode = "IDLE" # กลับสู่โหมดว่างหลัง Calibrate เสร็จ ไม่เริ่ม Session ทันที
+                            app_mode = "IDLE"
                             current_calib_msg = "Calibration Complete"
                     else: current_calib_msg = "All set!"
 
@@ -183,6 +182,7 @@ def tracking_loop():
                         seq = NECK_STEPS if current_exercise_type == "neck" else BACK_STEPS
                         if current_step_idx >= len(seq): current_step_idx = 0 
                         step_info = seq[current_step_idx]
+                        
                         instruction_en = step_info["inst"]
                         pt = step_info["type"]
                         
@@ -202,9 +202,14 @@ def tracking_loop():
                                 if elapsed_phase >= 3: current_phase, elapsed_phase = 2, 0
                             elif current_phase == 2:
                                 target_breathing = "HOLD"
-                                if elapsed_phase >= 7: current_phase, elapsed_phase = 3, 0 # ปรับเป็น 7 วินาที
+                                if elapsed_phase >= 7: current_phase, elapsed_phase = 3, 0 
                             elif current_phase == 3:
                                 target_breathing = "EXHALE"
+                                # [NEW LOGIC] เปลี่ยน Hologram เป็นท่าเตรียมทันทีที่เริ่มหายใจออก (เฉพาะหมวด back)
+                                if current_exercise_type != "neck":
+                                    pt = "ready"
+                                    instruction_en = "Return to READY pose"
+                                    
                                 if elapsed_phase >= 3: current_phase, elapsed_phase, current_step_idx = 1, 0, current_step_idx + 1
 
                             time_limit = 7 if current_phase == 2 else 3
@@ -219,7 +224,6 @@ def tracking_loop():
                             elif pt == "back_right":
                                 if rw.y > rs.y and rw.y < rh.y and nose.x > (ls.x + rs.x)/2 + 0.05: is_perfect = True
                             elif pt == "ready":
-                                # ท่าเตรียม: มือวางข้างลำตัว ไม่ยกขึ้นสูง และอยู่ใกล้ระนาบไหล่
                                 if lw.y > ls.y and rw.y > rs.y and abs(lw.x - ls.x) < 0.15: is_perfect = True
 
                             cx, cy = int((ls.x + rs.x)/2 * w), int((ls.y + rs.y)/2 * h)
