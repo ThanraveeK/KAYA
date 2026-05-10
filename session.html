@@ -87,8 +87,8 @@
         // ระบบกล้อง
         const hiddenVideo = document.createElement('video');
         hiddenVideo.autoplay = true;
-        hiddenVideo.playsInline = true; // เพิ่มเล่นในตัว
-        hiddenVideo.muted = true; // เพิ่มปิดเสียง
+        hiddenVideo.playsInline = true;
+        hiddenVideo.muted = true;
         const hiddenCanvas = document.createElement('canvas');
         const ctx = hiddenCanvas.getContext('2d');
         const displayImg = document.getElementById('webcamVideo');
@@ -98,7 +98,7 @@
             })
             .then(stream => {
                 hiddenVideo.srcObject = stream;
-                hiddenVideo.play(); // บังคับเล่น
+                hiddenVideo.play();
             })
             .catch(err => alert("Camera Error: " + err.message + "\nโปรดตรวจสอบว่าเปิดเว็บผ่าน HTTPS หรือ Vercel หรือยัง"));
 
@@ -123,15 +123,17 @@
             }
         }, 1000);
 
-        function startSync() {
-            setInterval(() => {
+        async function startSync() {
+            async function processNextFrame() {
                 if (hiddenVideo.readyState >= 2) {
                     hiddenCanvas.width = 640;
                     hiddenCanvas.height = 480;
                     ctx.drawImage(hiddenVideo, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-                    const base64Image = hiddenCanvas.toDataURL('image/jpeg', 0.5);
+                    // ปรับ quality ลดลงนิดนึงเพื่อความเร็วแบบเดียวกับหน้า calibrate
+                    const base64Image = hiddenCanvas.toDataURL('image/jpeg', 0.4);
 
-                    fetch('https://kaya-47w7.onrender.com/api/process_frame', {
+                    try {
+                        const response = await fetch('https://kaya-47w7.onrender.com/api/process_frame', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
@@ -139,45 +141,56 @@
                             body: JSON.stringify({
                                 image: base64Image
                             })
-                        })
-                        .then(res => res.json())
-                        .then(data => {
-                            if (data.image) displayImg.src = data.image;
+                        });
 
-                            if (data.is_complete) {
-                                document.getElementById('activeSessionView').classList.add('hidden');
-                                document.getElementById('successSessionView').classList.replace('hidden', 'flex');
-                                return;
-                            }
-                            if (data.total_time !== undefined) {
-                                let min = Math.floor(data.total_time / 60),
-                                    sec = data.total_time % 60;
-                                timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-                            }
-                            bLabel.innerText = data.breathing || "IDLE";
-                            bTimer.innerText = data.time_left || 0;
+                        const data = await response.json();
 
-                            if (data.breathing === "PAUSED") {
-                                bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-grayDark bg-transparent mb-6";
-                                bCircle.classList.remove('glow-active');
-                            } else if (data.breathing === "INHALE") {
-                                bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenLight bg-transparent mb-6 scale-110";
-                                bCircle.classList.remove('glow-active');
-                            } else if (data.breathing === "HOLD") {
-                                if (data.pose_msg === "PERFECT!") bCircle.classList.add('glow-active');
-                                else bCircle.classList.remove('glow-active');
-                            } else if (data.breathing === "EXHALE") {
-                                bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenDark bg-transparent mb-6 scale-90";
-                                bCircle.classList.remove('glow-active');
-                            }
+                        if (data.image) displayImg.src = data.image;
 
-                            if (data.instruction) {
-                                statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
-                                statusTop.className = `text-sm font-bold uppercase ${data.pose_msg === 'PERFECT!' ? 'text-kaya-greenDark' : (data.pose_msg && data.pose_msg.includes('FRAME') ? 'text-kaya-grayDark' : 'text-red-500')}`;
-                            }
-                        }).catch(e => console.log("Connection delay"));
+                        if (data.is_complete) {
+                            document.getElementById('activeSessionView').classList.add('hidden');
+                            document.getElementById('successSessionView').classList.replace('hidden', 'flex');
+                            return; // ถ้าทำกายภาพเสร็จแล้ว ให้หยุดการส่งภาพ
+                        }
+
+                        if (data.total_time !== undefined) {
+                            let min = Math.floor(data.total_time / 60),
+                                sec = data.total_time % 60;
+                            timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+                        }
+
+                        bLabel.innerText = data.breathing || "IDLE";
+                        bTimer.innerText = data.time_left || 0;
+
+                        if (data.breathing === "PAUSED") {
+                            bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-grayDark bg-transparent mb-6";
+                            bCircle.classList.remove('glow-active');
+                        } else if (data.breathing === "INHALE") {
+                            bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenLight bg-transparent mb-6 scale-110";
+                            bCircle.classList.remove('glow-active');
+                        } else if (data.breathing === "HOLD") {
+                            if (data.pose_msg === "PERFECT!") bCircle.classList.add('glow-active');
+                            else bCircle.classList.remove('glow-active');
+                        } else if (data.breathing === "EXHALE") {
+                            bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenDark bg-transparent mb-6 scale-90";
+                            bCircle.classList.remove('glow-active');
+                        }
+
+                        if (data.instruction) {
+                            statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
+                            statusTop.className = `text-sm font-bold uppercase ${data.pose_msg === 'PERFECT!' ? 'text-kaya-greenDark' : (data.pose_msg && data.pose_msg.includes('FRAME') ? 'text-kaya-grayDark' : 'text-red-500')}`;
+                        }
+                    } catch (e) {
+                        console.log("Connection delay");
+                    }
                 }
-            }, 250);
+
+                // รอ 200ms แล้วค่อยดึงเฟรมถัดไป
+                setTimeout(processNextFrame, 200);
+            }
+
+            // เรียกทำงานรอบแรก
+            processNextFrame();
         }
     </script>
 </body>
