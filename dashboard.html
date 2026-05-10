@@ -175,8 +175,32 @@
     <script>
         let aiPollingInterval = null;
         let onCooldown = false;
+        let snoozeUntil = 0; // ตัวแปรเก็บเวลา Snooze (มิลลิวินาที)
 
+        // 💡 [NEW] ดักจับเมื่อผู้ใช้กด "ปิดแท็บ" เบราว์เซอร์
+        window.addEventListener('unload', () => {
+            const btn = document.getElementById('sessionBtn');
+            // ถ้า Session เปิดอยู่ แล้วกดปิดแท็บ ให้สั่ง Stop Session ไปที่ Python อัตโนมัติ
+            if (btn && btn.innerText.trim() === 'Stop Session') {
+                fetch('http://localhost:5000/api/toggle_session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        action: 'stop'
+                    }),
+                    keepalive: true // บังคับให้ส่งคำสั่งไป Python ให้เสร็จแม้จะปิดแท็บไปแล้ว
+                });
+            }
+        });
+
+        // เมื่อเปิดหน้าเว็บ โหลดสถานะเดิมเผื่อมีการรันค้างไว้
         window.addEventListener('load', async() => {
+            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
+
             try {
                 const response = await fetch('http://localhost:5000/api/session_status');
                 const data = await response.json();
@@ -207,6 +231,8 @@
 
                 if (isStarting) {
                     setUIActive(true);
+                    snoozeUntil = 0; // รีเซ็ตเวลา Snooze เมื่อเริ่มใหม่
+                    onCooldown = false;
                     aiPollingInterval = setInterval(pollAIStatus, 2000);
                 } else {
                     setUIActive(false);
@@ -244,28 +270,78 @@
         }
 
         async function pollAIStatus() {
+            // 💡 [NEW] เช็คว่าอยู่ในช่วง Snooze อยู่หรือไม่
+            if (Date.now() < snoozeUntil) return;
             if (onCooldown) return;
+
             try {
                 const response = await fetch('http://localhost:5000/api/status');
                 const data = await response.json();
 
-                // 💡 [แก้ไข] เบราว์เซอร์ไม่ต้องยิง Push Notification แล้ว เพราะ Python จัดการให้แบบทะลุหน้าจอไปแล้ว
-                // แต่ถ้าเบราว์เซอร์ยังเปิดอยู่ มันจะแอบเปลี่ยนหน้าจอรอไว้ให้คุณเลย!
                 if (data.pose_msg && data.pose_msg !== "") {
                     let msg = data.pose_msg;
-                    onCooldown = true;
-                    setTimeout(() => {
-                        onCooldown = false;
-                    }, 30000);
+                    let title = "",
+                        body = "",
+                        url = "";
 
-                    if (msg.includes("Forward Head") || msg.includes("Rounded Shoulders")) {
-                        window.location.href = "session.html?type=neck";
+                    // 💡 [NEW] แยกพาไปหน้า Session ตามประเภทที่ตรวจจับเจอ
+                    if (msg.includes("Forward Head")) {
+                        title = "Watch Your Screen Distance";
+                        body = "Your screen is drawing you in. Pull your chin back and relax your neck.";
+                        url = "session.html?type=neck";
+                    } else if (msg.includes("Rounded Shoulders")) {
+                        title = "Open Your Chest";
+                        body = "We noticed a slouch. Take a deep breath and roll your shoulders back.";
+                        url = "session.html?type=neck";
                     } else if (msg.includes("Prolonged Static Posture")) {
-                        window.location.href = "session.html?type=back";
+                        title = "Mindful Break";
+                        body = "You've been focused for a while. Let's take a quick stretch.";
+                        url = "session.html?type=back";
                     }
+
+                    if (title) fireRealNotification(title, body, url);
                 }
             } catch (error) {
                 console.log("Waiting for KAYA AI Backend...");
+            }
+        }
+
+        function fireRealNotification(title, body, url) {
+            onCooldown = true;
+
+            if ("Notification" in window && Notification.permission === "granted") {
+                const notification = new Notification("KAYA 🔔", {
+                    body: title + "\n" + body + "\n\n(คลิกเพื่อทำกายภาพ หรือ กดกากบาทเพื่อพักการแจ้งเตือน 5 นาที)",
+                    icon: "https://cdn-icons-png.flaticon.com/512/2950/2950322.png",
+                    requireInteraction: true // บังคับให้ค้างบนจอจนกว่าจะตอบสนอง
+                });
+
+                // 💡 [NEW] ถ้าผู้ใช้คลิกที่แจ้งเตือน (พร้อมไปทำกายภาพ)
+                notification.onclick = function(event) {
+                    event.preventDefault();
+                    window.focus();
+                    window.location.href = url;
+                    notification.close();
+                };
+
+                // 💡 [NEW] ถ้าผู้ใช้กด X ปิดแจ้งเตือน (Snooze 5 นาที)
+                notification.onclose = function() {
+                    console.log("User dismissed notification. Snoozing for 5 minutes...");
+                    snoozeUntil = Date.now() + (5 * 60 * 1000); // บวกไปอีก 300,000 มิลลิวินาที
+                    onCooldown = false; // ปลดล็อค Cooldown ให้ทำงานได้ใหม่หลังหมดเวลา
+                };
+
+            } else {
+                // Fallback: กรณีเครื่องหรือเบราว์เซอร์ไม่รองรับ
+                let userWantsToFix = confirm("KAYA 🔔 Alert!\n\n" + title + "\n" + body + "\n\nกด OK เพื่อทำกายภาพทันที\nกด Cancel เพื่อพักการแจ้งเตือน 5 นาที (Snooze)");
+
+                if (userWantsToFix) {
+                    window.location.href = url;
+                } else {
+                    console.log("User snoozed via popup.");
+                    snoozeUntil = Date.now() + (5 * 60 * 1000);
+                    onCooldown = false;
+                }
             }
         }
     </script>

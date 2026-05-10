@@ -6,7 +6,6 @@ import time
 import math
 import numpy as np
 import threading
-from plyer import notification # <-- [NEW] ไลบรารีแจ้งเตือนระดับ OS
 
 app = Flask(__name__)
 CORS(app)
@@ -48,15 +47,11 @@ manual_session = False
 camera_thread = None
 output_frame = None
 
-# ป้องกันการยิงแจ้งเตือนรัวๆ
-last_os_alert_time = 0
-
 def tracking_loop():
     global tracking_active, output_frame
     global baseline_shoulder_width, is_calibrating, calibration_start_time, calibration_data_x
     global breathing_state, breath_start_time, current_calib_msg, current_pose_msg
     global fhp_start_time, rounded_start_time, static_start_time, static_anchor
-    global last_os_alert_time
     
     cap = cv2.VideoCapture(0, cv2.CAP_MSMF)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -179,34 +174,6 @@ def tracking_loop():
 
                     if active_warnings:
                         current_pose_msg = " | ".join(active_warnings)
-                        
-                        # 💡 [NEW] ให้ Python ยิงแจ้งเตือนทะลุเบราว์เซอร์ไปที่ OS โดยตรง!
-                        if current_time - last_os_alert_time > 30: # ป้องกันแจ้งเตือนรัวเกินไป (หน่วง 30 วิ)
-                            try:
-                                title_text = "KAYA 🔔 Alert!"
-                                body_text = current_pose_msg
-                                
-                                # แต่งข้อความแจ้งเตือนให้สวยงาม
-                                if "Forward Head" in current_pose_msg:
-                                    title_text = "Watch Your Screen Distance"
-                                    body_text = "Pull your chin back and relax your neck."
-                                elif "Rounded Shoulders" in current_pose_msg:
-                                    title_text = "Open Your Chest"
-                                    body_text = "Take a deep breath and roll your shoulders back."
-                                elif "Prolonged" in current_pose_msg:
-                                    title_text = "Mindful Break"
-                                    body_text = "You've been focused for a while. Let's take a quick stretch."
-                                    
-                                notification.notify(
-                                    title=title_text,
-                                    message=body_text,
-                                    app_name="KAYA Posture",
-                                    timeout=10 # แจ้งเตือนค้างไว้ 10 วินาที
-                                )
-                                last_os_alert_time = current_time
-                            except Exception as e:
-                                print("OS Notification Error:", e)
-                                
                     else:
                         current_pose_msg = ""
 
