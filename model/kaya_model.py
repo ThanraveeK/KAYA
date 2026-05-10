@@ -4,7 +4,7 @@ import cv2
 import mediapipe as mp
 import time
 import math
-import numpy as np # เพิ่ม numpy สำหรับคำนวณแสง
+import numpy as np
 
 app = Flask(__name__)
 CORS(app)
@@ -12,6 +12,9 @@ CORS(app)
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 mp_drawing = mp.solutions.drawing_utils
+
+# สร้างเซ็ตของการเชื่อมต่อเฉพาะช่วงลำตัว (ตัดใบหน้า ID 0-10 ออก)
+BODY_CONNECTIONS = frozenset([conn for conn in mp_pose.POSE_CONNECTIONS if conn[0] > 10 and conn[1] > 10])
 
 # Variables
 baseline_shoulder_width = None
@@ -30,11 +33,18 @@ EXHALE_SEC = 5
 current_calib_msg = "Waiting for camera..."
 current_pose_msg = ""
 
+# --- ตัวแปรสำหรับ Buffer / Range ท่าทาง ---
+bad_posture_frames = 0
+WARNING_THRESHOLD = 15 # ต้องทำท่าผิดค้างไว้ 15 เฟรมถึงจะเตือน (กันการขยับตัวชั่วคราว)
+
 cap = cv2.VideoCapture(0, cv2.CAP_MSMF)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
 def generate_frames():
     global baseline_shoulder_width, is_calibrating, calibration_start_time, calibration_data_x
     global breathing_state, breath_start_time, current_calib_msg, current_pose_msg
+    global bad_posture_frames
     
     while cap.isOpened():
         ret, frame = cap.read()
@@ -47,7 +57,6 @@ def generate_frames():
         h, w, c = frame.shape
         current_time = time.time()
 
-        # เช็คความสว่างของภาพ (แสงน้อย)
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         brightness = np.mean(gray)
 
@@ -56,15 +65,14 @@ def generate_frames():
         else:
             landmarks = results.pose_landmarks.landmark
             
+            # จุดอ้างอิง
+            nose = landmarks[mp_pose.PoseLandmark.NOSE.value]
             left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
             right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
-            left_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value]
-            right_wrist = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value]
             
             current_shoulder_width = abs(left_shoulder.x - right_shoulder.x)
-            shoulder_ratio = current_shoulder_width # สัดส่วนความกว้างไหล่เทียบกับจอ (0-1)
+            shoulder_ratio = current_shoulder_width
 
-            # [อัปเดตข้อความ Calibration ไปให้ HTML]
             if brightness < 40:
                 current_calib_msg = "Low light detected"
             elif shoulder_ratio > 0.45:
@@ -78,7 +86,6 @@ def generate_frames():
                 else:
                     current_calib_msg = "All set!"
 
-            # [ระบบ Calibration]
             if is_calibrating:
                 elapsed_time = current_time - calibration_start_time
                 if elapsed_time < calibration_duration:
@@ -90,27 +97,58 @@ def generate_frames():
                     calibration_data_x = []
                     current_calib_msg = "Calibration Complete"
 
-            # --- เอา mp_drawing.draw_landmarks ออกตรงนี้ ภาพจะไม่มีเส้นบนหน้าและตัวแล้ว ---
+            # ---------------------------------------------------------
+            # 1. การวาดโครงกระดูก (เฉพาะส่วนตัว)
+            # ---------------------------------------------------------
+            # ปิด Visibility ของจุดใบหน้า (0-10) จะได้ไม่ถูกวาดออกมา
+            for i in range(11):
+                results.pose_landmarks.landmark[i].visibility = 0
 
-            # [ระบบเช็คท่าทาง Session]
-            current_pose_msg = "" # เคลียร์ข้อความเริ่มต้น
-            if breathing_state in ["INHALE", "HOLD"]:
-                # คำนวณจุดเป้าหมายเหมือนเดิม แต่ไม่ต้องวาดเส้นสีน้ำเงินแล้ว
-                target_wrist_x = int((left_shoulder.x + right_shoulder.x) / 2 * w)
-                target_wrist_y = int(left_shoulder.y * h)
+            # วาดเส้นเฉพาะ Body Connections
+            mp_drawing.draw_landmarks(
+                frame, 
+                results.pose_landmarks, 
+                BODY_CONNECTIONS,
+                mp_drawing.DrawingSpec(color=(220, 220, 220), thickness=2, circle_radius=3), # สีจุด
+                mp_drawing.DrawingSpec(color=(180, 180, 180), thickness=2, circle_radius=2)  # สีเส้น
+            )
 
-                if breathing_state == "HOLD":
-                    lw_px = (int(left_wrist.x * w), int(left_wrist.y * h))
-                    rw_px = (int(right_wrist.x * w), int(right_wrist.y * h))
-                    
-                    dist_left = math.hypot(lw_px[0] - target_wrist_x, lw_px[1] - target_wrist_y)
-                    dist_right = math.hypot(rw_px[0] - target_wrist_x, rw_px[1] - target_wrist_y)
-                    
-                    tolerance = 60
-                    if dist_left < tolerance and dist_right < tolerance:
-                        current_pose_msg = "PERFECT POSTURE!"
-                    else:
-                        current_pose_msg = "Push Arms Forward to match Blue Line" # (แก้ข้อความเป็นคำแนะนำอื่นได้ตามชอบนะครับ)
+            # ---------------------------------------------------------
+            # 2. ระบบตรวจจับท่าทาง (Posture Logic + Hysteresis Range)
+            # ---------------------------------------------------------
+            detected_issue = None
+
+            if baseline_shoulder_width and not is_calibrating and breathing_state != "IDLE":
+                # A. เช็คไหล่ห่อ (Rounded Shoulders)
+                # ถ้ากว้างน้อยกว่า 82% ของตอน Calibrate แปลว่าเริ่มห่อไหล่ (Range: 82% ลงไป)
+                current_ratio = current_shoulder_width / baseline_shoulder_width
+                
+                # B. เช็คคอยื่น (Forward Head Posture)
+                # เอาแกน Z ของไหล่ ลบ แกน Z ของจมูก (ยิ่งบวกเยอะ แปลว่าจมูกพุ่งแซงไหล่มาเยอะ)
+                avg_shoulder_z = (left_shoulder.z + right_shoulder.z) / 2
+                head_forward_dist = avg_shoulder_z - nose.z
+
+                # ประเมินผล (Prioritize การแก้คอยื่นก่อน เพราะอันตรายกว่า)
+                if head_forward_dist > 0.12:  # ค่า Threshold แกน Z (ปรับเพิ่มลดได้ตามสภาพกล้อง)
+                    detected_issue = "Adjust Neck: Forward Head Detected"
+                elif current_ratio < 0.82:    # ค่า Threshold ไหล่
+                    detected_issue = "Open Chest: Rounded Shoulders Detected"
+
+            # ---------------------------------------------------------
+            # 3. ระบบ Buffer กันการเตือนจุกจิก
+            # ---------------------------------------------------------
+            if detected_issue:
+                bad_posture_frames += 1
+            else:
+                # ถ้าทำถูกท่า ให้ค่อยๆ ลดค่าลง (ลดทีละ 2 เพื่อให้ฟื้นตัวกลับมาสถานะปกติได้ไวขึ้น)
+                bad_posture_frames = max(0, bad_posture_frames - 2)
+
+            # ตัดสินใจส่งข้อความไปหา HTML
+            if bad_posture_frames >= WARNING_THRESHOLD:
+                current_pose_msg = detected_issue
+            else:
+                current_pose_msg = "PERFECT POSTURE!"
+
 
         # [ระบบจับเวลาลมหายใจของฝั่ง Python]
         if breathing_state != "IDLE":
@@ -122,7 +160,7 @@ def generate_frames():
                 breathing_state = "EXHALE"
                 breath_start_time = current_time
             elif breathing_state == "EXHALE" and elapsed_breath > EXHALE_SEC:
-                breathing_state = "INHALE" # วนลูป
+                breathing_state = "INHALE"
                 breath_start_time = current_time
 
         ret, buffer = cv2.imencode('.jpg', frame)
@@ -138,7 +176,6 @@ def generate_frames():
 def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-# [NEW] Endpoint ส่งข้อความสถานะให้ HTML ดึงไปโชว์
 @app.route('/api/status', methods=['GET'])
 def get_status():
     global current_calib_msg, current_pose_msg
