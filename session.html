@@ -31,8 +31,6 @@
         }
     </script>
     <style>
-        /* CSS เพิ่มการเรืองแสงให้วงแหวนตอนทำท่าถูกต้อง */
-        
         .glow-active {
             filter: drop-shadow(0 0 25px #eddea2);
             border-color: #eddea2 !important;
@@ -117,7 +115,6 @@
 
         let isPrepPhase = true;
         let prepTimeLeft = 10;
-        let totalTimeLeft = 120; // 2 นาที
 
         const timerDisplay = document.getElementById('timerDisplay');
         const breathingLabel = document.getElementById('breathingLabel');
@@ -130,13 +127,14 @@
             breathingCircle.className = `w-64 h-64 md:w-80 lg:w-96 lg:h-96 rounded-full border-[14px] ${colorClass} transition-all duration-[3000ms] ease-in-out shadow-lg bg-transparent mb-6`;
         }
 
-        // ระบบนับถอยหลังรวมและเตรียมพร้อม
+        // ระบบนับเวลาเตียมพร้อม จะหยุดนับถ้าถึง 0 เพื่อปล่อยให้ Python คุมเวลาหลัก
         const sessionCountdown = setInterval(() => {
             if (isPrepPhase) {
                 prepTimeLeft--;
                 breathingTimerDisplay.innerText = prepTimeLeft;
                 if (prepTimeLeft <= 0) {
                     isPrepPhase = false;
+                    clearInterval(sessionCountdown);
                     fetch('http://localhost:5000/api/start_pose', {
                         method: 'POST',
                         headers: {
@@ -148,39 +146,42 @@
                     });
                     startStateListener();
                 }
-            } else {
-                // นับเวลา Session รวม (02:00)
-                totalTimeLeft--;
-                let min = Math.floor(totalTimeLeft / 60);
-                let sec = totalTimeLeft % 60;
-                timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-
-                if (totalTimeLeft <= 0) {
-                    clearInterval(sessionCountdown);
-                    document.getElementById('activeSessionView').classList.add('hidden');
-                    document.getElementById('successSessionView').classList.replace('hidden', 'flex');
-                }
             }
         }, 1000);
 
         function startStateListener() {
             setInterval(() => {
-                if (totalTimeLeft <= 0) return;
                 fetch('http://localhost:5000/api/status')
                     .then(res => res.json())
                     .then(data => {
+                        if (data.is_complete) {
+                            document.getElementById('activeSessionView').classList.add('hidden');
+                            document.getElementById('successSessionView').classList.replace('hidden', 'flex');
+                            return;
+                        }
+
+                        // รับเวลารวมมาจาก Python เพื่อให้ซิงค์กับการจับภาพกล้องจริงๆ
+                        if (data.total_time !== undefined) {
+                            let min = Math.floor(data.total_time / 60);
+                            let sec = data.total_time % 60;
+                            timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+                        }
+
                         if (data.breathing) {
                             breathingLabel.innerText = data.breathing;
                             breathingTimerDisplay.innerText = data.time_left;
 
-                            // 3-Phase Animation & Glow effect
-                            if (data.breathing === "INHALE") {
+                            // ระบบ 3-Phase Animation พร้อมโหมด PAUSE
+                            if (data.breathing === "PAUSED") {
+                                updateCircleUI(1.0, 'border-kaya-grayDark');
+                                breathingCircle.classList.remove('glow-active');
+                            } else if (data.breathing === "INHALE") {
                                 updateCircleUI(1.15, 'border-kaya-greenLight');
                                 breathingCircle.classList.remove('glow-active');
                             } else if (data.breathing === "HOLD") {
                                 updateCircleUI(1.15, 'border-kaya-yellow');
                                 if (data.pose_msg === "PERFECT!") {
-                                    breathingCircle.classList.add('glow-active'); // เรืองแสงเมื่อทำถูก
+                                    breathingCircle.classList.add('glow-active');
                                 } else {
                                     breathingCircle.classList.remove('glow-active');
                                 }
@@ -190,10 +191,19 @@
                             }
                         }
 
-                        // แสดงสถานะภาษาอังกฤษ + ฟีดแบ็ก
                         if (data.pose_msg && data.instruction) {
-                            statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : " (ADJUST POSE)");
-                            statusTop.className = `text-sm font-bold uppercase tracking-widest ${data.pose_msg === "PERFECT!" ? 'text-kaya-greenDark' : 'text-red-500'}`;
+                            statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
+
+                            // เปลี่ยนสีตัวหนังสือตามสถานะ
+                            if (data.pose_msg === "PERFECT!") {
+                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-kaya-greenDark';
+                            } else if (data.pose_msg === "STAY IN FRAME TO RESUME") {
+                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-kaya-grayDark';
+                                statusTop.innerText = data.pose_msg; // กรณีหลุดกล้อง โชว์แค่ให้กลับเข้าเฟรม
+                            } else {
+                                statusTop.className = 'text-sm font-bold uppercase tracking-widest text-red-500';
+                            }
+
                         } else if (data.calib_msg) {
                             statusTop.innerText = data.calib_msg;
                         }
