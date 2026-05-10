@@ -87,6 +87,8 @@
         // ระบบกล้อง
         const hiddenVideo = document.createElement('video');
         hiddenVideo.autoplay = true;
+        hiddenVideo.playsInline = true; // เพิ่มเล่นในตัว
+        hiddenVideo.muted = true; // เพิ่มปิดเสียง
         const hiddenCanvas = document.createElement('canvas');
         const ctx = hiddenCanvas.getContext('2d');
         const displayImg = document.getElementById('webcamVideo');
@@ -96,8 +98,9 @@
             })
             .then(stream => {
                 hiddenVideo.srcObject = stream;
+                hiddenVideo.play(); // บังคับเล่น
             })
-            .catch(err => alert("Camera is required for session!"));
+            .catch(err => alert("Camera Error: " + err.message + "\nโปรดตรวจสอบว่าเปิดเว็บผ่าน HTTPS หรือ Vercel หรือยัง"));
 
         const prepLoop = setInterval(() => {
             if (isPrep) {

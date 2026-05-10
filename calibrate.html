@@ -98,7 +98,7 @@
             " Waiting for camera... "
         </p>
 
-        <video id="hiddenVideo" autoplay playsinline class="hidden"></video>
+        <video id="hiddenVideo" autoplay playsinline muted class="hidden"></video>
         <canvas id="hiddenCanvas" class="hidden"></canvas>
 
         <div class="relative w-full max-w-2xl aspect-[4/3] rounded-[2.5rem] border-[12px] border-kaya-greenLight bg-white shadow-xl shadow-kaya-greenDark/10 overflow-hidden mb-8">
@@ -148,11 +148,12 @@
                 })
                 .then(stream => {
                     hiddenVideo.srcObject = stream;
+                    hiddenVideo.play(); // บังคับเล่น
                     loadingElement.classList.add('hidden');
                     startFrameStream();
                 })
                 .catch(err => {
-                    alert("KAYA needs camera access to work properly!");
+                    alert("Camera Error: " + err.message + "\nโปรดตรวจสอบว่าเปิดเว็บผ่าน HTTPS หรือ Vercel หรือยัง");
                 });
         });
 
