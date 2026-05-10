@@ -32,10 +32,10 @@ EXHALE_SEC = 5
 current_calib_msg = "Waiting for camera..."
 current_pose_msg = ""
 
-# เวลาตรวจจับ
-FHP_TIME_LIMIT = 5       
-ROUNDED_TIME_LIMIT = 5   
-STATIC_TIME_LIMIT = 10   
+# เวลาตรวจจับสำหรับการทดสอบ (ปรับให้น้อยลงเพื่อให้เห็นผลไวขึ้น)
+FHP_TIME_LIMIT = 2.0       
+ROUNDED_TIME_LIMIT = 2.0   
+STATIC_TIME_LIMIT = 5.0   
 
 fhp_start_time = None
 rounded_start_time = None
@@ -66,7 +66,7 @@ def tracking_loop():
     global breathing_state, breath_start_time, current_calib_msg, current_pose_msg
     global fhp_start_time, rounded_start_time, static_start_time, static_anchor
     
-    # แก้ไขการดึงภาพจากกล้องให้บีบอัดเป็น MJPG เพื่อแก้ปัญหาเปิดกล้องช้า
+    # ใช้ MJPG เพื่อให้กล้องโหลดไว ไม่ค้าง 20 วินาที
     cap = cv2.VideoCapture(0, cv2.CAP_MSMF)
     cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
@@ -156,6 +156,7 @@ def tracking_loop():
                         shoulder_z = (left_shoulder.z + right_shoulder.z) / 2.0
                         shoulder_x = (left_shoulder.x + right_shoulder.x) / 2.0
 
+                        # 1. ตรวจจับยื่นหน้า (Forward Head)
                         delta_y = shoulder_y - ear_y 
                         delta_z = shoulder_z - ear_z 
 
@@ -163,7 +164,8 @@ def tracking_loop():
                         if delta_z > 0: 
                             cva_angle = math.degrees(math.atan2(delta_y, delta_z))
 
-                        if cva_angle < 45.0:
+                        # ปรับความเซนซิทีฟให้จับง่ายขึ้น
+                        if cva_angle < 65.0:
                             if fhp_start_time is None: 
                                 fhp_start_time = current_time
                             elif (current_time - fhp_start_time) >= FHP_TIME_LIMIT:
@@ -171,7 +173,8 @@ def tracking_loop():
                         else:
                             fhp_start_time = None 
 
-                        if current_shoulder_width < (baseline_shoulder_width * 0.90):
+                        # 2. ตรวจจับไหล่ห่อ (Rounded Shoulders)
+                        if current_shoulder_width < (baseline_shoulder_width * 0.95):
                             if rounded_start_time is None: 
                                 rounded_start_time = current_time
                             elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT:
@@ -179,8 +182,9 @@ def tracking_loop():
                         else:
                             rounded_start_time = None
 
+                        # 3. ตรวจจับการนั่งแช่ (Prolonged Static Posture)
                         current_coords = (ear_y, shoulder_y, shoulder_x)
-                        threshold_dist = baseline_shoulder_width * 0.125
+                        threshold_dist = baseline_shoulder_width * 0.08 
 
                         if static_anchor is None:
                             static_anchor = current_coords
@@ -196,7 +200,7 @@ def tracking_loop():
                                 static_anchor = current_coords
                                 static_start_time = current_time
                             elif (current_time - static_start_time) >= STATIC_TIME_LIMIT:
-                                active_warnings.append("Prolonged Static Posture")
+                                active_warnings.append("Static Posture")
 
                         if active_warnings:
                             current_pose_msg = " | ".join(active_warnings)
@@ -208,7 +212,6 @@ def tracking_loop():
                         # โหมดที่ 2: ตรวจจับองศาการทำกายภาพบำบัด (Exercise Mode)
                         # ========================================================
                         
-                        # เช็คแค่ "จมูก" และ "ไหล่" ว่ายังอยู่หน้าจอไหม (ยอมให้มือหลุดเฟรมได้)
                         core_visibility = min(nose.visibility, left_shoulder.visibility, right_shoulder.visibility)
                         
                         if core_visibility < 0.5:
@@ -218,15 +221,14 @@ def tracking_loop():
                             l_angle = calculate_angle([left_shoulder.x, left_shoulder.y], [left_elbow.x, left_elbow.y], [left_wrist.x, left_wrist.y])
                             r_angle = calculate_angle([right_shoulder.x, right_shoulder.y], [right_elbow.x, right_elbow.y], [right_wrist.x, right_wrist.y])
                             
-                            # ลดองศาลงเหลือ 140 เผื่อกรณีมือหลุดขอบจอแล้ว AI เดาองศาเพี้ยน
-                            p1_arms_extended = (l_angle >= 140) and (r_angle >= 140)
+                            p1_arms_extended = (l_angle >= 125) and (r_angle >= 125)
                             
-                            # ถ้ายกแขนจนข้อมือหลุดขอบจอบน (y < 0.1) หรือสูงกว่าจมูก ให้ถือว่าผ่าน
                             p1_l_wrist_high = (left_wrist.y < nose.y) or (left_wrist.y < 0.1)
                             p1_r_wrist_high = (right_wrist.y < nose.y) or (right_wrist.y < 0.1)
                             
-                            # ศอกต้องดึงไปด้านหลังระนาบไหล่
-                            p1_elbows_retracted = (left_elbow.z > left_shoulder.z) and (right_elbow.z > right_shoulder.z)
+                            z_tolerance = 0.1
+                            p1_elbows_retracted = (left_elbow.z > left_shoulder.z - z_tolerance) and \
+                                                  (right_elbow.z > right_shoulder.z - z_tolerance)
                             
                             is_pose_1 = p1_arms_extended and (p1_l_wrist_high and p1_r_wrist_high) and p1_elbows_retracted
 
@@ -235,7 +237,7 @@ def tracking_loop():
                             dz = abs(right_shoulder.z - left_shoulder.z)
                             shoulder_twist_angle = math.degrees(math.atan2(dz, dx + 1e-6))
                             
-                            p2_is_twisted = 30 <= shoulder_twist_angle <= 60
+                            p2_is_twisted = shoulder_twist_angle >= 12
                             
                             shoulder_center_x = (left_shoulder.x + right_shoulder.x) / 2.0
                             if right_shoulder.z > left_shoulder.z: 
@@ -245,7 +247,6 @@ def tracking_loop():
                                 
                             chest_y = (left_shoulder.y + right_shoulder.y) / 2.0
                             
-                            # มือที่กดสะโพก อาจหลุดขอบจอล่างไป (y > 0.9) หรืออยู่ต่ำกว่าอก ถือว่าผ่าน
                             p2_hand_placed = (left_wrist.y > chest_y or left_wrist.y > 0.9) or \
                                              (right_wrist.y > chest_y or right_wrist.y > 0.9)
 
@@ -291,7 +292,7 @@ def generate_frames():
             if output_frame is not None:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + output_frame + b'\r\n')
-            time.sleep(0.016) # ปรับเป็น 60fps เพื่อความสมูท
+            time.sleep(0.016)
     finally:
         if started_by_feed and not manual_session:
             tracking_active = False
