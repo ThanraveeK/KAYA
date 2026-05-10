@@ -32,7 +32,7 @@ EXHALE_SEC = 5
 current_calib_msg = "Waiting for camera..."
 current_pose_msg = ""
 
-# เวลาตรวจจับ (อย่าลืมปรับเป็น 5 ตอนเทสต์นะครับ)
+# เวลาตรวจจับ
 FHP_TIME_LIMIT = 5       
 ROUNDED_TIME_LIMIT = 5   
 STATIC_TIME_LIMIT = 10   
@@ -66,7 +66,9 @@ def tracking_loop():
     global breathing_state, breath_start_time, current_calib_msg, current_pose_msg
     global fhp_start_time, rounded_start_time, static_start_time, static_anchor
     
+    # แก้ไขการดึงภาพจากกล้องให้บีบอัดเป็น MJPG เพื่อแก้ปัญหาเปิดกล้องช้า
     cap = cv2.VideoCapture(0, cv2.CAP_MSMF)
+    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'))
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
 
@@ -97,7 +99,6 @@ def tracking_loop():
                 left_ear = landmarks[mp_pose.PoseLandmark.LEFT_EAR.value]
                 right_ear = landmarks[mp_pose.PoseLandmark.RIGHT_EAR.value]
                 
-                # ดึงจุดเพิ่มเติมสำหรับ Exercise Mode
                 left_elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value]
                 right_elbow = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value]
                 left_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value]
@@ -207,49 +208,55 @@ def tracking_loop():
                         # โหมดที่ 2: ตรวจจับองศาการทำกายภาพบำบัด (Exercise Mode)
                         # ========================================================
                         
-                        # --- 1. เกณฑ์การประเมิน ท่าดัดตนแก้เกียจ ---
-                        l_angle = calculate_angle([left_shoulder.x, left_shoulder.y], [left_elbow.x, left_elbow.y], [left_wrist.x, left_wrist.y])
-                        r_angle = calculate_angle([right_shoulder.x, right_shoulder.y], [right_elbow.x, right_elbow.y], [right_wrist.x, right_wrist.y])
+                        # เช็คแค่ "จมูก" และ "ไหล่" ว่ายังอยู่หน้าจอไหม (ยอมให้มือหลุดเฟรมได้)
+                        core_visibility = min(nose.visibility, left_shoulder.visibility, right_shoulder.visibility)
                         
-                        # เหยียดแขนตึง 160-180 องศา
-                        p1_arms_extended = (l_angle >= 160) and (r_angle >= 160)
-                        # ข้อมือสูงกว่าศีรษะ (แกน y ยิ่งน้อยยิ่งสูง)
-                        p1_wrists_high = (left_wrist.y < nose.y) and (right_wrist.y < nose.y)
-                        # ดึงศอกถอยหลังเกินกว่าระนาบไหล่ (แกน z ค่าบวกแปลว่าถอยห่างจากกล้อง/อยู่ด้านหลัง)
-                        p1_elbows_retracted = (left_elbow.z > left_shoulder.z) and (right_elbow.z > right_shoulder.z)
-                        
-                        is_pose_1 = p1_arms_extended and p1_wrists_high and p1_elbows_retracted
-
-                        # --- 2. เกณฑ์การประเมิน ท่าดัดตนบิดลำตัว ---
-                        dx = abs(right_shoulder.x - left_shoulder.x)
-                        dz = abs(right_shoulder.z - left_shoulder.z)
-                        shoulder_twist_angle = math.degrees(math.atan2(dz, dx + 1e-6))
-                        
-                        # บิดไหล่ให้มีความต่าง Z ให้ได้องศา 30-45 (เผื่อความยืดหยุ่นให้ถึง 60)
-                        p2_is_twisted = 30 <= shoulder_twist_angle <= 60
-                        
-                        # เช็คทิศทางการหันหน้าให้สอดคล้องกับหัวไหล่ที่บิด
-                        shoulder_center_x = (left_shoulder.x + right_shoulder.x) / 2.0
-                        if right_shoulder.z > left_shoulder.z: 
-                            # ไหล่ขวาอยู่ลึกกว่าไหล่ซ้าย (บิดตัวขวา) จมูกควรไปทางขวา
-                            p2_head_turned = nose.x > shoulder_center_x
-                        else: 
-                            # ไหล่ซ้ายอยู่ลึกกว่า (บิดตัวซ้าย) จมูกควรไปทางซ้าย
-                            p2_head_turned = nose.x < shoulder_center_x
-                            
-                        # ตำแหน่งมือ (ข้อมือข้างใดข้างหนึ่ง) ต่ำกว่าช่วงอก
-                        chest_y = (left_shoulder.y + right_shoulder.y) / 2.0
-                        p2_hand_placed = (left_wrist.y > chest_y) or (right_wrist.y > chest_y)
-
-                        is_pose_2 = p2_is_twisted and p2_head_turned and p2_hand_placed
-
-                        # หากตรงเกณฑ์ท่าใดท่าหนึ่ง ถือว่าผ่าน
-                        if is_pose_1 or is_pose_2:
-                            current_pose_msg = "PERFECT POSTURE!"
+                        if core_visibility < 0.5:
+                            current_pose_msg = "PLEASE STAY IN FRAME"
                         else:
-                            current_pose_msg = "ADJUST YOUR POSTURE"
+                            # --- 1. เกณฑ์การประเมิน ท่าดัดตนแก้เกียจ ---
+                            l_angle = calculate_angle([left_shoulder.x, left_shoulder.y], [left_elbow.x, left_elbow.y], [left_wrist.x, left_wrist.y])
+                            r_angle = calculate_angle([right_shoulder.x, right_shoulder.y], [right_elbow.x, right_elbow.y], [right_wrist.x, right_wrist.y])
+                            
+                            # ลดองศาลงเหลือ 140 เผื่อกรณีมือหลุดขอบจอแล้ว AI เดาองศาเพี้ยน
+                            p1_arms_extended = (l_angle >= 140) and (r_angle >= 140)
+                            
+                            # ถ้ายกแขนจนข้อมือหลุดขอบจอบน (y < 0.1) หรือสูงกว่าจมูก ให้ถือว่าผ่าน
+                            p1_l_wrist_high = (left_wrist.y < nose.y) or (left_wrist.y < 0.1)
+                            p1_r_wrist_high = (right_wrist.y < nose.y) or (right_wrist.y < 0.1)
+                            
+                            # ศอกต้องดึงไปด้านหลังระนาบไหล่
+                            p1_elbows_retracted = (left_elbow.z > left_shoulder.z) and (right_elbow.z > right_shoulder.z)
+                            
+                            is_pose_1 = p1_arms_extended and (p1_l_wrist_high and p1_r_wrist_high) and p1_elbows_retracted
 
-            # การควบคุมสเตทการหายใจ (ทำงานเฉพาะตอนอยู่ใน Exercise Mode)
+                            # --- 2. เกณฑ์การประเมิน ท่าดัดตนบิดลำตัว ---
+                            dx = abs(right_shoulder.x - left_shoulder.x)
+                            dz = abs(right_shoulder.z - left_shoulder.z)
+                            shoulder_twist_angle = math.degrees(math.atan2(dz, dx + 1e-6))
+                            
+                            p2_is_twisted = 30 <= shoulder_twist_angle <= 60
+                            
+                            shoulder_center_x = (left_shoulder.x + right_shoulder.x) / 2.0
+                            if right_shoulder.z > left_shoulder.z: 
+                                p2_head_turned = nose.x > shoulder_center_x
+                            else: 
+                                p2_head_turned = nose.x < shoulder_center_x
+                                
+                            chest_y = (left_shoulder.y + right_shoulder.y) / 2.0
+                            
+                            # มือที่กดสะโพก อาจหลุดขอบจอล่างไป (y > 0.9) หรืออยู่ต่ำกว่าอก ถือว่าผ่าน
+                            p2_hand_placed = (left_wrist.y > chest_y or left_wrist.y > 0.9) or \
+                                             (right_wrist.y > chest_y or right_wrist.y > 0.9)
+
+                            is_pose_2 = p2_is_twisted and p2_head_turned and p2_hand_placed
+
+                            if is_pose_1 or is_pose_2:
+                                current_pose_msg = "PERFECT POSTURE!"
+                            else:
+                                current_pose_msg = "PLEASE ADJUST YOUR POSTURE"
+
+            # การควบคุมสเตทการหายใจ
             if breathing_state != "IDLE":
                 elapsed_breath = current_time - breath_start_time
                 if breathing_state == "INHALE" and elapsed_breath > INHALE_SEC:
@@ -265,8 +272,6 @@ def tracking_loop():
             ret, buffer = cv2.imencode('.jpg', frame)
             if ret:
                 output_frame = buffer.tobytes()
-            
-            time.sleep(0.03)
 
     finally:
         cap.release()
@@ -286,7 +291,7 @@ def generate_frames():
             if output_frame is not None:
                 yield (b'--frame\r\n'
                        b'Content-Type: image/jpeg\r\n\r\n' + output_frame + b'\r\n')
-            time.sleep(0.05)
+            time.sleep(0.016) # ปรับเป็น 60fps เพื่อความสมูท
     finally:
         if started_by_feed and not manual_session:
             tracking_active = False
