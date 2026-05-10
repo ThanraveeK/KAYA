@@ -47,6 +47,19 @@ manual_session = False
 camera_thread = None
 output_frame = None
 
+# ---------------------------------------------------------
+# Helper Function: คำนวณมุมระหว่าง 3 จุด
+# ---------------------------------------------------------
+def calculate_angle(a, b, c):
+    a = np.array(a)
+    b = np.array(b)
+    c = np.array(c)
+    radians = np.arctan2(c[1] - b[1], c[0] - b[0]) - np.arctan2(a[1] - b[1], a[0] - b[0])
+    angle = np.abs(radians * 180.0 / np.pi)
+    if angle > 180.0:
+        angle = 360.0 - angle
+    return angle
+
 def tracking_loop():
     global tracking_active, output_frame
     global baseline_shoulder_width, is_calibrating, calibration_start_time, calibration_data_x
@@ -83,6 +96,13 @@ def tracking_loop():
                 right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
                 left_ear = landmarks[mp_pose.PoseLandmark.LEFT_EAR.value]
                 right_ear = landmarks[mp_pose.PoseLandmark.RIGHT_EAR.value]
+                
+                # ดึงจุดเพิ่มเติมสำหรับ Exercise Mode
+                left_elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value]
+                right_elbow = landmarks[mp_pose.PoseLandmark.RIGHT_ELBOW.value]
+                left_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value]
+                right_wrist = landmarks[mp_pose.PoseLandmark.RIGHT_WRIST.value]
+                nose = landmarks[mp_pose.PoseLandmark.NOSE.value]
                 
                 current_shoulder_width = abs(left_shoulder.x - right_shoulder.x)
 
@@ -122,61 +142,114 @@ def tracking_loop():
                 )
 
                 if baseline_shoulder_width and not is_calibrating:
-                    active_warnings = []
+                    
+                    if breathing_state == "IDLE":
+                        # ========================================================
+                        # โหมดที่ 1: ตรวจจับท่าทางออฟฟิศซินโดรม (Monitoring Mode)
+                        # ========================================================
+                        active_warnings = []
 
-                    ear_y = (left_ear.y + right_ear.y) / 2.0
-                    ear_z = (left_ear.z + right_ear.z) / 2.0
-                    shoulder_y = (left_shoulder.y + right_shoulder.y) / 2.0
-                    shoulder_z = (left_shoulder.z + right_shoulder.z) / 2.0
-                    shoulder_x = (left_shoulder.x + right_shoulder.x) / 2.0
+                        ear_y = (left_ear.y + right_ear.y) / 2.0
+                        ear_z = (left_ear.z + right_ear.z) / 2.0
+                        shoulder_y = (left_shoulder.y + right_shoulder.y) / 2.0
+                        shoulder_z = (left_shoulder.z + right_shoulder.z) / 2.0
+                        shoulder_x = (left_shoulder.x + right_shoulder.x) / 2.0
 
-                    delta_y = shoulder_y - ear_y 
-                    delta_z = shoulder_z - ear_z 
+                        delta_y = shoulder_y - ear_y 
+                        delta_z = shoulder_z - ear_z 
 
-                    cva_angle = 90.0 
-                    if delta_z > 0: 
-                        cva_angle = math.degrees(math.atan2(delta_y, delta_z))
+                        cva_angle = 90.0 
+                        if delta_z > 0: 
+                            cva_angle = math.degrees(math.atan2(delta_y, delta_z))
 
-                    if cva_angle < 45.0:
-                        if fhp_start_time is None: 
-                            fhp_start_time = current_time
-                        elif (current_time - fhp_start_time) >= FHP_TIME_LIMIT:
-                            active_warnings.append("Forward Head")
-                    else:
-                        fhp_start_time = None 
+                        if cva_angle < 45.0:
+                            if fhp_start_time is None: 
+                                fhp_start_time = current_time
+                            elif (current_time - fhp_start_time) >= FHP_TIME_LIMIT:
+                                active_warnings.append("Forward Head")
+                        else:
+                            fhp_start_time = None 
 
-                    if current_shoulder_width < (baseline_shoulder_width * 0.90):
-                        if rounded_start_time is None: 
-                            rounded_start_time = current_time
-                        elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT:
-                            active_warnings.append("Rounded Shoulders")
-                    else:
-                        rounded_start_time = None
+                        if current_shoulder_width < (baseline_shoulder_width * 0.90):
+                            if rounded_start_time is None: 
+                                rounded_start_time = current_time
+                            elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT:
+                                active_warnings.append("Rounded Shoulders")
+                        else:
+                            rounded_start_time = None
 
-                    current_coords = (ear_y, shoulder_y, shoulder_x)
-                    threshold_dist = baseline_shoulder_width * 0.125
+                        current_coords = (ear_y, shoulder_y, shoulder_x)
+                        threshold_dist = baseline_shoulder_width * 0.125
 
-                    if static_anchor is None:
-                        static_anchor = current_coords
-                        static_start_time = current_time
-                    else:
-                        dist = math.sqrt(
-                            (current_coords[0] - static_anchor[0])**2 +
-                            (current_coords[1] - static_anchor[1])**2 +
-                            (current_coords[2] - static_anchor[2])**2
-                        )
-                        
-                        if dist > threshold_dist:
+                        if static_anchor is None:
                             static_anchor = current_coords
                             static_start_time = current_time
-                        elif (current_time - static_start_time) >= STATIC_TIME_LIMIT:
-                            active_warnings.append("Prolonged Static Posture")
+                        else:
+                            dist = math.sqrt(
+                                (current_coords[0] - static_anchor[0])**2 +
+                                (current_coords[1] - static_anchor[1])**2 +
+                                (current_coords[2] - static_anchor[2])**2
+                            )
+                            
+                            if dist > threshold_dist:
+                                static_anchor = current_coords
+                                static_start_time = current_time
+                            elif (current_time - static_start_time) >= STATIC_TIME_LIMIT:
+                                active_warnings.append("Prolonged Static Posture")
 
-                    if active_warnings:
-                        current_pose_msg = " | ".join(active_warnings)
+                        if active_warnings:
+                            current_pose_msg = " | ".join(active_warnings)
+                        else:
+                            current_pose_msg = ""
+                            
                     else:
-                        current_pose_msg = ""
+                        # ========================================================
+                        # โหมดที่ 2: ตรวจจับองศาการทำกายภาพบำบัด (Exercise Mode)
+                        # ========================================================
+                        
+                        # --- 1. เกณฑ์การประเมิน ท่าดัดตนแก้เกียจ ---
+                        l_angle = calculate_angle([left_shoulder.x, left_shoulder.y], [left_elbow.x, left_elbow.y], [left_wrist.x, left_wrist.y])
+                        r_angle = calculate_angle([right_shoulder.x, right_shoulder.y], [right_elbow.x, right_elbow.y], [right_wrist.x, right_wrist.y])
+                        
+                        # เหยียดแขนตึง 160-180 องศา
+                        p1_arms_extended = (l_angle >= 160) and (r_angle >= 160)
+                        # ข้อมือสูงกว่าศีรษะ (แกน y ยิ่งน้อยยิ่งสูง)
+                        p1_wrists_high = (left_wrist.y < nose.y) and (right_wrist.y < nose.y)
+                        # ดึงศอกถอยหลังเกินกว่าระนาบไหล่ (แกน z ค่าบวกแปลว่าถอยห่างจากกล้อง/อยู่ด้านหลัง)
+                        p1_elbows_retracted = (left_elbow.z > left_shoulder.z) and (right_elbow.z > right_shoulder.z)
+                        
+                        is_pose_1 = p1_arms_extended and p1_wrists_high and p1_elbows_retracted
 
+                        # --- 2. เกณฑ์การประเมิน ท่าดัดตนบิดลำตัว ---
+                        dx = abs(right_shoulder.x - left_shoulder.x)
+                        dz = abs(right_shoulder.z - left_shoulder.z)
+                        shoulder_twist_angle = math.degrees(math.atan2(dz, dx + 1e-6))
+                        
+                        # บิดไหล่ให้มีความต่าง Z ให้ได้องศา 30-45 (เผื่อความยืดหยุ่นให้ถึง 60)
+                        p2_is_twisted = 30 <= shoulder_twist_angle <= 60
+                        
+                        # เช็คทิศทางการหันหน้าให้สอดคล้องกับหัวไหล่ที่บิด
+                        shoulder_center_x = (left_shoulder.x + right_shoulder.x) / 2.0
+                        if right_shoulder.z > left_shoulder.z: 
+                            # ไหล่ขวาอยู่ลึกกว่าไหล่ซ้าย (บิดตัวขวา) จมูกควรไปทางขวา
+                            p2_head_turned = nose.x > shoulder_center_x
+                        else: 
+                            # ไหล่ซ้ายอยู่ลึกกว่า (บิดตัวซ้าย) จมูกควรไปทางซ้าย
+                            p2_head_turned = nose.x < shoulder_center_x
+                            
+                        # ตำแหน่งมือ (ข้อมือข้างใดข้างหนึ่ง) ต่ำกว่าช่วงอก
+                        chest_y = (left_shoulder.y + right_shoulder.y) / 2.0
+                        p2_hand_placed = (left_wrist.y > chest_y) or (right_wrist.y > chest_y)
+
+                        is_pose_2 = p2_is_twisted and p2_head_turned and p2_hand_placed
+
+                        # หากตรงเกณฑ์ท่าใดท่าหนึ่ง ถือว่าผ่าน
+                        if is_pose_1 or is_pose_2:
+                            current_pose_msg = "PERFECT POSTURE!"
+                        else:
+                            current_pose_msg = "ADJUST YOUR POSTURE"
+
+            # การควบคุมสเตทการหายใจ (ทำงานเฉพาะตอนอยู่ใน Exercise Mode)
             if breathing_state != "IDLE":
                 elapsed_breath = current_time - breath_start_time
                 if breathing_state == "INHALE" and elapsed_breath > INHALE_SEC:
