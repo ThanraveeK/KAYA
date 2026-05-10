@@ -273,10 +273,22 @@
             const btn = document.getElementById('sessionBtn');
             const isStarting = btn.innerText.trim() === 'Begin Session';
 
+            // --- [ส่วนที่เพิ่มใหม่] เช็คสถานะการ Calibrate ---
+            if (isStarting) {
+                const user = localStorage.getItem('currentUser') || 'guest';
+                const isCalibrated = localStorage.getItem('kaya_calibration_' + user);
+                if (!isCalibrated) {
+                    alert("Please calibrate your camera baseline first.");
+                    window.location.href = 'calibrate.html';
+                    return; // ยกเลิกการเริ่มทำงานและเด้งไปหน้าตั้งค่า
+                }
+            }
+            // ---------------------------------------------
+
             const localData = loadLocalData();
 
             try {
-                // ส่งข้อมูลเดิมไปให้ Python เริ่มนับต่อ (ใช้ร่วมกับไฟล์ kaya.py ตัวล่าสุด)
+                // ส่งข้อมูลเดิมไปให้ Python เริ่มนับต่อ
                 await fetch('http://localhost:5000/api/toggle_session', {
                     method: 'POST',
                     headers: {
@@ -353,11 +365,11 @@
                     if (msg.includes("Forward Head") || msg.includes("Rounded Shoulders")) {
                         title = "Open Your Chest";
                         body = "We noticed a slouch. Take a deep breath and roll your shoulders back.";
-                        url = "session.html?type=neck";
+                        url = "stretch.html";
                     } else if (msg.includes("Prolonged Static Posture")) {
                         title = "Mindful Break";
                         body = "You've been focused for a while. Let's take a quick stretch.";
-                        url = "session.html?type=back";
+                        url = "stretch.html";
                     }
 
                     if (title) fireRealNotification(title, body, url);

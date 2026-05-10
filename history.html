@@ -42,10 +42,8 @@
 
 <body class="bg-kaya-bg text-gray-800 font-sans antialiased selection:bg-kaya-greenLight selection:text-white h-screen flex overflow-hidden">
 
-    <!-- แถบเมนูด้านซ้าย (Sidebar) -->
     <aside class="w-72 bg-kaya-greenLight flex flex-col justify-between z-20 py-10 px-6 shrink-0">
         <div>
-            <!-- โลโก้ KAYA -->
             <div class="mb-12 flex flex-col items-center text-center">
                 <h1 class="text-6xl font-serif font-bold tracking-[0.15em] text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark drop-shadow-sm leading-none">
                     KAYA
@@ -55,7 +53,6 @@
                 </p>
             </div>
 
-            <!-- เมนู (Navigation) -->
             <nav class="flex flex-col gap-3">
                 <a href="dashboard.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
                     <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z"/></svg>
@@ -67,7 +64,6 @@
                     <span class="text-xl font-bold font-sans">Stretch</span>
                 </a>
 
-                <!-- สถานะ Active อยู่ที่ History -->
                 <a href="history.html" class="flex items-center gap-4 bg-kaya-greenDark px-5 py-3 rounded-xl text-kaya-menuLight transition-all shadow-md">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     <span class="text-xl font-bold font-sans">History</span>
@@ -93,17 +89,25 @@
         </div>
     </aside>
 
-    <!-- พื้นที่เนื้อหาหลักด้านขวา (ปล่อยว่าง มีแค่หัวข้อ) -->
     <main class="flex-1 p-10 md:p-12 overflow-y-auto relative w-full flex flex-col">
 
-        <!-- Header (มีแค่คำว่า History) -->
         <div class="flex justify-between items-center mb-10">
             <h2 class="text-3xl md:text-4xl font-serif font-bold text-kaya-greenDark tracking-widest uppercase drop-shadow-sm">
                 History
             </h2>
         </div>
 
-        <!-- พื้นที่ด้านล่างว่างเปล่าตามที่ขอครับ -->
+        <div class="flex-1 flex flex-col items-center justify-center text-center opacity-80 mt-10">
+            <div class="w-32 h-32 mb-6 bg-kaya-bg border-4 border-kaya-greenLight text-kaya-greenLight rounded-full flex items-center justify-center shadow-inner">
+                <svg class="w-16 h-16" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+            </div>
+            <h3 class="text-4xl font-serif font-bold text-kaya-greenDark mb-4 tracking-wide">
+                Coming Soon
+            </h3>
+            <p class="text-xl text-kaya-grayDark font-medium max-w-md mx-auto leading-relaxed">
+                Your past sessions and health progress will be displayed here soon!
+            </p>
+        </div>
 
     </main>
 
