@@ -57,7 +57,6 @@
 
 <body class="bg-kaya-bg text-gray-800 font-sans antialiased selection:bg-kaya-greenLight selection:text-white h-screen flex overflow-hidden">
 
-    <!-- แถบเมนูด้านซ้าย -->
     <aside class="w-72 bg-kaya-greenLight flex flex-col justify-between z-20 py-10 px-6 shrink-0">
         <div>
             <div class="mb-12 flex flex-col items-center text-center">
@@ -69,7 +68,6 @@
                 </p>
             </div>
 
-            <!-- เมนูทุกลิงก์พร้อมใช้งานแล้ว -->
             <nav class="flex flex-col gap-3">
                 <a href="dashboard.html" class="flex items-center gap-4 bg-kaya-greenDark px-5 py-3 rounded-xl text-kaya-menuLight transition-all shadow-md">
                     <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z"/></svg>
@@ -87,7 +85,7 @@
                 </a>
 
                 <a href="calibrate.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
-                    <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812-1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
                     <span class="text-xl font-bold font-sans">Calibrate</span>
                 </a>
             </nav>
@@ -98,7 +96,6 @@
                 <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 <span class="text-lg font-bold font-sans">Account</span>
             </a>
-
             <a href="login.html" class="flex items-center gap-4 px-5 py-3 text-transparent bg-clip-text bg-gradient-to-r from-kaya-menuLight to-kaya-menuDark hover:bg-white/10 rounded-xl transition-all group">
                 <svg class="w-6 h-6 text-kaya-menuLight group-hover:text-white transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
                 <span class="text-lg font-bold font-sans">Logout</span>
@@ -106,28 +103,23 @@
         </div>
     </aside>
 
-    <!-- พื้นที่เนื้อหาหลักด้านขวา -->
     <main class="flex-1 p-10 md:p-12 overflow-y-auto relative w-full">
         <div class="flex justify-between items-center mb-8">
             <h2 class="text-4xl font-serif font-bold text-kaya-greenDark tracking-wide drop-shadow-sm">
                 DASHBOARD OVERVIEW
             </h2>
-            <div class="w-12 h-12 rounded-full border-2 border-kaya-greenDark text-kaya-greenDark flex items-center justify-center bg-transparent cursor-pointer hover:bg-kaya-greenDark hover:text-white transition-colors">
-                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.121 17.804A13.937 13.937 0 0112 16c2.5 0 4.847.655 6.879 1.804M15 10a3 3 0 11-6 0 3 3 0 016 0zm6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <div id="aiStatusBadge" class="flex items-center gap-2 bg-white px-4 py-2 rounded-full border-2 border-kaya-grayDark text-kaya-grayDark font-bold text-sm transition-all">
+                <div class="w-3 h-3 rounded-full bg-kaya-grayDark"></div> AI STANDBY
             </div>
         </div>
 
         <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 mb-8 flex flex-col md:flex-row justify-between items-center border border-white">
             <div class="mb-6 md:mb-0">
-                <h3 class="text-2xl font-sans font-bold text-kaya-greenDark mb-2">
-                    Ready to find your balance today?
-                </h3>
+                <h3 class="text-2xl font-sans font-bold text-kaya-greenDark mb-2">Ready to find your balance today?</h3>
                 <p class="text-kaya-grayDark font-medium text-lg">
                     Let KAYA monitor your posture while you focus on what<br>matters. We'll remind you when it's time to move.
                 </p>
             </div>
-
-            <!-- ปรับให้ปุ่มทำแค่สลับสถานะสีเทา/สีเขียว ไม่เปลี่ยนหน้าแล้ว -->
             <button id="sessionBtn" onclick="toggleSession()" class="bg-kaya-greenDark text-white px-10 py-4 rounded-xl text-xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-1 transition duration-300 transform whitespace-nowrap min-w-[200px]">
                 Begin Session
             </button>
@@ -158,7 +150,6 @@
                         <p class="text-kaya-grayDark font-medium text-lg">Active Time</p>
                     </div>
                 </div>
-
                 <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 flex items-center gap-8 border border-white h-full">
                     <div class="w-16 h-16 text-kaya-greenDark flex items-center justify-center shrink-0">
                         <svg class="w-14 h-14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4a2 2 0 110 4 2 2 0 010-4zM6 10h12v2h-3v10h-2v-6h-2v6H9V12H6v-2z"></path></svg>
@@ -168,7 +159,6 @@
                         <p class="text-kaya-grayDark font-medium text-lg">Stretch Time</p>
                     </div>
                 </div>
-
                 <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 flex items-center gap-8 border border-white h-full">
                     <div class="w-16 h-16 text-kaya-greenDark flex items-center justify-center shrink-0 relative">
                         <svg class="w-12 h-12" fill="currentColor" viewBox="0 0 24 24"><path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path></svg>
@@ -183,46 +173,6 @@
         </div>
     </main>
 
-    <script>
-        // ฟังก์ชันสลับสีและข้อความปุ่ม Begin / Stop Session
-        function toggleSession() {
-            const btn = document.getElementById('sessionBtn');
-            if (btn.innerText.trim() === 'Begin Session') {
-                btn.innerText = 'Stop Session';
-                btn.classList.remove('bg-kaya-greenDark');
-                btn.classList.add('bg-kaya-grayDark');
-            } else {
-                btn.innerText = 'Begin Session';
-                btn.classList.remove('bg-kaya-grayDark');
-                btn.classList.add('bg-kaya-greenDark');
-            }
-        }
-    </script>
-
-    <!-- ================= เมนูสำหรับทดสอบแจ้งเตือน (มุมขวาล่าง) ================= -->
-    <div class="fixed bottom-8 right-8 z-50 flex flex-col gap-3 items-end">
-        <p class="text-xs font-bold text-kaya-grayDark bg-white px-3 py-1 rounded-full shadow-md mb-1">Test Push Notifications (5s Delay)</p>
-
-        <!-- กรณี 1: Watch Your Screen Distance -> Neck -->
-        <button onclick="schedulePushNotification(0)" class="bg-white border-2 border-kaya-greenLight text-kaya-greenDark px-5 py-2.5 rounded-full shadow-lg hover:bg-kaya-greenLight hover:text-white transition font-bold text-sm w-64 text-left flex justify-between items-center group">
-            <span>🖥️ Screen Distance</span>
-            <span class="opacity-0 group-hover:opacity-100 transition-opacity text-xs">Test</span>
-        </button>
-
-        <!-- กรณี 2: Open Your Chest -> Neck -->
-        <button onclick="schedulePushNotification(1)" class="bg-white border-2 border-kaya-greenLight text-kaya-greenDark px-5 py-2.5 rounded-full shadow-lg hover:bg-kaya-greenLight hover:text-white transition font-bold text-sm w-64 text-left flex justify-between items-center group">
-            <span>🫁 Open Your Chest</span>
-            <span class="opacity-0 group-hover:opacity-100 transition-opacity text-xs">Test</span>
-        </button>
-
-        <!-- กรณี 3: Mindful Break -> Back -->
-        <button onclick="schedulePushNotification(2)" class="bg-white border-2 border-kaya-greenLight text-kaya-greenDark px-5 py-2.5 rounded-full shadow-lg hover:bg-kaya-greenLight hover:text-white transition font-bold text-sm w-64 text-left flex justify-between items-center group">
-            <span>🧘 Mindful Break</span>
-            <span class="opacity-0 group-hover:opacity-100 transition-opacity text-xs">Test</span>
-        </button>
-    </div>
-
-    <!-- Script สำหรับควบคุมการเด้งแจ้งเตือนผ่าน OS -->
     <script>
         let aiPollingInterval = null;
         let onCooldown = false;
@@ -241,23 +191,25 @@
                     Notification.requestPermission();
                 }
 
-                // สลับ UI
                 if (statusBadge) {
                     statusBadge.classList.replace('border-kaya-grayDark', 'border-kaya-greenLight');
                     statusBadge.classList.replace('text-kaya-grayDark', 'text-kaya-greenDark');
                     statusBadge.innerHTML = '<div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div> AI TRACKING';
                 }
 
-                // 💡 [แก้ไขตรงนี้] สร้างกล้องแล้วใช้ CSS หลอกดันออกนอกจอแทน เพื่อไม่ให้เบราว์เซอร์บล็อกการทำงาน
                 if (!hiddenImg) {
                     hiddenImg = document.createElement('img');
                     hiddenImg.src = "http://localhost:5000/video_feed";
+
+                    // 💡 [แก้ไขตรงนี้] วางไว้มุมจอให้เบราว์เซอร์เห็น แต่ทำให้เล็ก 2px และโปร่งใส 0.01
                     hiddenImg.style.position = "absolute";
-                    hiddenImg.style.left = "-9999px"; // ดันออกนอกจอไปไกลๆ
-                    hiddenImg.style.top = "-9999px";
-                    hiddenImg.style.width = "10px";
-                    hiddenImg.style.height = "10px";
-                    hiddenImg.style.opacity = "0"; // ทำให้โปร่งใส
+                    hiddenImg.style.bottom = "10px";
+                    hiddenImg.style.right = "10px";
+                    hiddenImg.style.width = "2px";
+                    hiddenImg.style.height = "2px";
+                    hiddenImg.style.opacity = "0.01";
+                    hiddenImg.style.pointerEvents = "none"; // กดไม่โดน
+
                     document.body.appendChild(hiddenImg);
                 }
 
@@ -280,6 +232,7 @@
                 }
 
                 if (hiddenImg) {
+                    hiddenImg.src = "";
                     hiddenImg.remove();
                     hiddenImg = null;
                 }
@@ -288,33 +241,31 @@
 
         async function pollAIStatus() {
             if (onCooldown) return;
-
             try {
                 const response = await fetch('http://localhost:5000/api/status');
                 const data = await response.json();
 
                 if (data.pose_msg && data.pose_msg !== "") {
                     let msg = data.pose_msg;
+                    let title = "",
+                        body = "",
+                        url = "";
 
                     if (msg.includes("Forward Head")) {
-                        fireRealNotification(
-                            "Watch Your Screen Distance",
-                            "Your screen is drawing you in. Pull your chin back and relax your neck.",
-                            "session.html?type=neck"
-                        );
+                        title = "Watch Your Screen Distance";
+                        body = "Your screen is drawing you in. Pull your chin back and relax your neck.";
+                        url = "session.html?type=neck";
                     } else if (msg.includes("Rounded Shoulders")) {
-                        fireRealNotification(
-                            "Open Your Chest",
-                            "We noticed a slouch. Take a deep breath and roll your shoulders back.",
-                            "session.html?type=neck"
-                        );
+                        title = "Open Your Chest";
+                        body = "We noticed a slouch. Take a deep breath and roll your shoulders back.";
+                        url = "session.html?type=neck";
                     } else if (msg.includes("Prolonged Static Posture")) {
-                        fireRealNotification(
-                            "Mindful Break",
-                            "You've been focused for a while. Let's take a quick stretch.",
-                            "session.html?type=back"
-                        );
+                        title = "Mindful Break";
+                        body = "You've been focused for a while. Let's take a quick stretch.";
+                        url = "session.html?type=back";
                     }
+
+                    if (title) fireRealNotification(title, body, url);
                 }
             } catch (error) {
                 console.log("Waiting for KAYA AI Backend...");
@@ -333,7 +284,6 @@
                     icon: "https://cdn-icons-png.flaticon.com/512/2950/2950322.png",
                     requireInteraction: true
                 });
-
                 notification.onclick = function(event) {
                     event.preventDefault();
                     window.focus();
@@ -346,9 +296,6 @@
             }
         }
     </script>
-</body>
-
-</html>
 </body>
 
 </html>
