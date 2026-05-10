@@ -48,6 +48,15 @@ time_left = 3
 instruction_en = "Get Ready"
 target_breathing = "INHALE"
 
+# === ระบบคะแนนสุขภาพ (Health Score System) ===
+daily_score = 100.0
+active_time_sec = 0.0
+stretch_count = 0
+snooze_count = 0
+continuous_bad_posture_sec = 0.0
+session_step_scores = []
+current_phase2_perfect_sec = 0.0
+
 # ตัวแปรเวลาอัจฉริยะ
 last_frame_time = 0.0
 elapsed_phase = 0.0
@@ -68,7 +77,6 @@ NECK_STEPS = [
     {"step": 10, "inst": "Clasp hands at the solar plexus", "type": "clasp"},
 ]
 
-# กลับมาใช้ 2 สเต็ปหลัก เพราะจังหวะกลับท่าเตรียมจะถูกผูกกับตอน Exhale แทน
 BACK_STEPS = [
     {"step": 1, "inst": "Left hand on waist, turn head fully LEFT", "type": "back_left"},
     {"step": 2, "inst": "Right hand on waist, turn head fully RIGHT", "type": "back_right"},
@@ -115,6 +123,10 @@ def tracking_loop():
     global fhp_start_time, rounded_start_time, static_start_time
     global last_frame_time, elapsed_phase, total_session_time, is_session_complete, app_mode
     
+    # Global Scoring Variables
+    global daily_score, active_time_sec, stretch_count, continuous_bad_posture_sec
+    global session_step_scores, current_phase2_perfect_sec
+
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
@@ -129,6 +141,8 @@ def tracking_loop():
             last_frame_time = current_time
             if dt > 1.0: dt = 0
             if not ret: continue
+            
+            active_time_sec += dt
                 
             frame = cv2.flip(frame, 1)
             results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
@@ -173,11 +187,21 @@ def tracking_loop():
 
                 if baseline_shoulder_width and not is_calibrating:
                     if breathing_state == "IDLE":
-                        # Monitoring Mode
+                        # Monitoring Mode - SCORING LOGIC
                         if curr_width < (baseline_shoulder_width * 0.95):
+                            continuous_bad_posture_sec += dt
                             if rounded_start_time is None: rounded_start_time = current_time
-                            elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: current_pose_msg = "Rounded Shoulders"
-                        else: rounded_start_time = None
+                            elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: 
+                                current_pose_msg = "Rounded Shoulders"
+                            
+                            # หัก 2 คะแนน ทุกๆ 5 นาที (300 วิ) ที่สรีระผิดปกติ
+                            if continuous_bad_posture_sec >= 300.0:
+                                daily_score = max(0.0, daily_score - 2.0)
+                                continuous_bad_posture_sec = 0.0 # เริ่มนับใหม่
+                        else: 
+                            rounded_start_time = None
+                            continuous_bad_posture_sec = 0.0
+                            
                     elif app_mode == "SESSION":
                         seq = NECK_STEPS if current_exercise_type == "neck" else BACK_STEPS
                         if current_step_idx >= len(seq): current_step_idx = 0 
@@ -192,9 +216,17 @@ def tracking_loop():
                         else:
                             total_session_time -= dt
                             elapsed_phase += dt
+                            
                             if total_session_time <= 0:
                                 is_session_complete = True
                                 breathing_state = "IDLE"
+                                stretch_count += 1
+                                # จบ Session คำนวณ Recovery Bonus
+                                if session_step_scores:
+                                    avg_acc = sum(session_step_scores) / len(session_step_scores)
+                                    bonus = (avg_acc / 100.0) * 5.0 # คืนคะแนนสูงสุด 5 แต้ม
+                                    daily_score = min(100.0, daily_score + bonus)
+                                    session_step_scores.clear()
                             
                             # 3-Phase Logic
                             if current_phase == 1:
@@ -205,12 +237,17 @@ def tracking_loop():
                                 if elapsed_phase >= 7: current_phase, elapsed_phase = 3, 0 
                             elif current_phase == 3:
                                 target_breathing = "EXHALE"
-                                # [NEW LOGIC] เปลี่ยน Hologram เป็นท่าเตรียมทันทีที่เริ่มหายใจออก (เฉพาะหมวด back)
                                 if current_exercise_type != "neck":
                                     pt = "ready"
                                     instruction_en = "Return to READY pose"
                                     
-                                if elapsed_phase >= 3: current_phase, elapsed_phase, current_step_idx = 1, 0, current_step_idx + 1
+                                if elapsed_phase >= 3: 
+                                    # คำนวณคะแนนของท่าที่เพิ่งผ่านไป
+                                    step_score = min(100.0, (current_phase2_perfect_sec / 7.0) * 100.0)
+                                    session_step_scores.append(step_score)
+                                    current_phase2_perfect_sec = 0.0
+                                    
+                                    current_phase, elapsed_phase, current_step_idx = 1, 0, current_step_idx + 1
 
                             time_limit = 7 if current_phase == 2 else 3
                             time_left = max(0, int(time_limit - elapsed_phase))
@@ -225,6 +262,10 @@ def tracking_loop():
                                 if rw.y > rs.y and rw.y < rh.y and nose.x > (ls.x + rs.x)/2 + 0.05: is_perfect = True
                             elif pt == "ready":
                                 if lw.y > ls.y and rw.y > rs.y and abs(lw.x - ls.x) < 0.15: is_perfect = True
+
+                            # เก็บเวลาที่ทำถูกต้องช่วง Phase 2 (Hold)
+                            if current_phase == 2 and is_perfect:
+                                current_phase2_perfect_sec += dt
 
                             cx, cy = int((ls.x + rs.x)/2 * w), int((ls.y + rs.y)/2 * h)
                             draw_target_hologram(frame, pt, cx, cy, baseline_shoulder_width * w, (0, 255, 0) if is_perfect else (0, 165, 255))
@@ -255,7 +296,11 @@ def get_status():
     return jsonify({
         "calib_msg": current_calib_msg, "pose_msg": current_pose_msg, "instruction": instruction_en, 
         "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
-        "time_left": time_left, "total_time": max(0, int(total_session_time)), "is_complete": is_session_complete
+        "time_left": time_left, "total_time": max(0, int(total_session_time)), "is_complete": is_session_complete,
+        "daily_score": int(daily_score),
+        "active_time_sec": active_time_sec,
+        "stretch_count": stretch_count,
+        "snooze_count": snooze_count
     })
 
 @app.route('/api/start_pose', methods=['POST'])
@@ -281,10 +326,22 @@ def calibrate():
 @app.route('/api/toggle_session', methods=['POST'])
 def toggle_session():
     global tracking_active, camera_thread, app_mode
+    global daily_score, active_time_sec, stretch_count, snooze_count 
+    
     data = request.json or {}
     action = data.get('action')
 
     if action == 'start':
+        # รับค่าเริ่มต้นจาก localStorage ของหน้าเว็บเพื่อไปประมวลผลต่อ
+        if 'init_score' in data:
+            daily_score = float(data['init_score'])
+        if 'init_active_time' in data:
+            active_time_sec = float(data['init_active_time'])
+        if 'init_stretch' in data:
+            stretch_count = int(data['init_stretch'])
+        if 'init_snooze' in data:
+            snooze_count = int(data['init_snooze'])
+
         if not tracking_active:
             tracking_active = True
             camera_thread = threading.Thread(target=tracking_loop, daemon=True)
@@ -303,6 +360,14 @@ def toggle_session():
 def session_status():
     global tracking_active
     return jsonify({"active": tracking_active})
+
+@app.route('/api/snooze', methods=['POST'])
+def register_snooze():
+    global snooze_count, daily_score
+    snooze_count += 1
+    # หัก 1 คะแนน โทษฐาน Missed Intervention
+    daily_score = max(0.0, daily_score - 1.0)
+    return jsonify({"status": "snoozed", "score": daily_score})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

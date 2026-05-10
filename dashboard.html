@@ -50,7 +50,7 @@
             stroke: #9fae9a;
             stroke-width: 3.5;
             stroke-linecap: round;
-            stroke-dasharray: 87, 100;
+            transition: stroke-dasharray 0.5s ease;
         }
     </style>
 </head>
@@ -131,13 +131,13 @@
                 <div class="relative w-64 h-64 mb-8">
                     <svg viewBox="0 0 36 36" class="w-full h-full transform -rotate-90">
                         <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
-                        <path class="circle-progress" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                        <path id="scoreCircle" class="circle-progress" stroke-dasharray="100, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                     </svg>
                     <div class="absolute inset-0 flex items-center justify-center">
-                        <span class="text-6xl font-sans font-bold text-gray-800">87%</span>
+                        <span id="scoreText" class="text-6xl font-sans font-bold text-gray-800">100</span><span class="text-4xl font-bold text-gray-800">%</span>
                     </div>
                 </div>
-                <p class="text-2xl font-bold text-kaya-greenDark">Great alignment!</p>
+                <p id="scoreLabel" class="text-2xl font-bold text-kaya-greenDark">Great alignment!</p>
             </div>
 
             <div class="flex flex-col gap-6">
@@ -146,7 +146,7 @@
                         <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </div>
                     <div>
-                        <p class="text-2xl font-bold text-kaya-greenDark mb-1">1 hour 37 min</p>
+                        <p id="activeTimeText" class="text-2xl font-bold text-kaya-greenDark mb-1">0 min</p>
                         <p class="text-kaya-grayDark font-medium text-lg">Active Time</p>
                     </div>
                 </div>
@@ -155,7 +155,7 @@
                         <svg class="w-14 h-14" fill="currentColor" viewBox="0 0 24 24"><path d="M12 4a2 2 0 110 4 2 2 0 010-4zM6 10h12v2h-3v10h-2v-6h-2v6H9V12H6v-2z"></path></svg>
                     </div>
                     <div>
-                        <p class="text-2xl font-bold text-kaya-greenDark mb-1">7 Times</p>
+                        <p id="stretchTimeText" class="text-2xl font-bold text-kaya-greenDark mb-1">0 Times</p>
                         <p class="text-kaya-grayDark font-medium text-lg">Stretch Time</p>
                     </div>
                 </div>
@@ -165,22 +165,74 @@
                         <span class="absolute top-0 right-0 text-lg font-bold">Z</span>
                     </div>
                     <div>
-                        <p class="text-2xl font-bold text-kaya-greenDark mb-1">2 Times</p>
+                        <p id="snoozedText" class="text-2xl font-bold text-kaya-greenDark mb-1">0 Times</p>
                         <p class="text-kaya-grayDark font-medium text-lg">Snoozed</p>
                     </div>
                 </div>
             </div>
         </div>
     </main>
+
     <script>
         let aiPollingInterval = null;
         let onCooldown = false;
-        let snoozeUntil = 0; // ตัวแปรเก็บเวลา Snooze (มิลลิวินาที)
+        let snoozeUntil = 0;
 
-        // 💡 [NEW] ดักจับเมื่อผู้ใช้กด "ปิดแท็บ" เบราว์เซอร์
+        // ดึง Storage Key รายวันตามผู้ใช้ที่ Login เข้ามา
+        function getStorageKey() {
+            const user = localStorage.getItem('currentUser') || 'guest';
+            const today = new Date();
+            return `kaya_data_${user}_${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+        }
+
+        // โหลดข้อมูลขึ้นมา ถ้าไม่มีให้สร้างใหม่ตั้งต้นที่ 100
+        function loadLocalData() {
+            const storageKey = getStorageKey();
+            let data = JSON.parse(localStorage.getItem(storageKey));
+
+            if (!data) {
+                data = {
+                    score: 100,
+                    active_time: 0,
+                    stretch: 0,
+                    snooze: 0
+                };
+                localStorage.setItem(storageKey, JSON.stringify(data));
+            }
+            return data;
+        }
+
+        // เซฟข้อมูลทับ Local
+        function saveLocalData(score, active_time, stretch, snooze) {
+            const data = {
+                score,
+                active_time,
+                stretch,
+                snooze
+            };
+            localStorage.setItem(getStorageKey(), JSON.stringify(data));
+        }
+
+        // อัปเดต UI ด้วยตัวเลข
+        function updateDashboardUI(score, activeTimeSec, stretchCount, snoozeCount) {
+            document.getElementById('scoreText').innerText = Math.round(score);
+            document.getElementById('scoreCircle').style.strokeDasharray = `${score}, 100`;
+
+            let label = document.getElementById('scoreLabel');
+            if (score >= 80) label.innerText = "Great alignment!";
+            else if (score >= 50) label.innerText = "Needs attention";
+            else label.innerText = "Please stretch!";
+
+            let hrs = Math.floor(activeTimeSec / 3600);
+            let mins = Math.floor((activeTimeSec % 3600) / 60);
+            let timeStr = hrs > 0 ? `${hrs} hr ${mins} min` : `${mins} min`;
+            document.getElementById('activeTimeText').innerText = timeStr;
+            document.getElementById('stretchTimeText').innerText = `${stretchCount} Times`;
+            document.getElementById('snoozedText').innerText = `${snoozeCount} Times`;
+        }
+
         window.addEventListener('unload', () => {
             const btn = document.getElementById('sessionBtn');
-            // ถ้า Session เปิดอยู่ แล้วกดปิดแท็บ ให้สั่ง Stop Session ไปที่ Python อัตโนมัติ
             if (btn && btn.innerText.trim() === 'Stop Session') {
                 fetch('http://localhost:5000/api/toggle_session', {
                     method: 'POST',
@@ -190,16 +242,19 @@
                     body: JSON.stringify({
                         action: 'stop'
                     }),
-                    keepalive: true // บังคับให้ส่งคำสั่งไป Python ให้เสร็จแม้จะปิดแท็บไปแล้ว
+                    keepalive: true
                 });
             }
         });
 
-        // เมื่อเปิดหน้าเว็บ โหลดสถานะเดิมเผื่อมีการรันค้างไว้
         window.addEventListener('load', async() => {
             if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
                 Notification.requestPermission();
             }
+
+            // แสดข้อมูลจาก LocalStorage ทันทีที่โหลดหน้าจอ ป้องกันการกระพริบ
+            const localData = loadLocalData();
+            updateDashboardUI(localData.score, localData.active_time, localData.stretch, localData.snooze);
 
             try {
                 const response = await fetch('http://localhost:5000/api/session_status');
@@ -218,20 +273,27 @@
             const btn = document.getElementById('sessionBtn');
             const isStarting = btn.innerText.trim() === 'Begin Session';
 
+            const localData = loadLocalData();
+
             try {
+                // ส่งข้อมูลเดิมไปให้ Python เริ่มนับต่อ (ใช้ร่วมกับไฟล์ kaya.py ตัวล่าสุด)
                 await fetch('http://localhost:5000/api/toggle_session', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        action: isStarting ? 'start' : 'stop'
+                        action: isStarting ? 'start' : 'stop',
+                        init_score: localData.score,
+                        init_active_time: localData.active_time,
+                        init_stretch: localData.stretch,
+                        init_snooze: localData.snooze
                     })
                 });
 
                 if (isStarting) {
                     setUIActive(true);
-                    snoozeUntil = 0; // รีเซ็ตเวลา Snooze เมื่อเริ่มใหม่
+                    snoozeUntil = 0;
                     onCooldown = false;
                     aiPollingInterval = setInterval(pollAIStatus, 2000);
                 } else {
@@ -270,13 +332,17 @@
         }
 
         async function pollAIStatus() {
-            // 💡 [NEW] เช็คว่าอยู่ในช่วง Snooze อยู่หรือไม่
-            if (Date.now() < snoozeUntil) return;
-            if (onCooldown) return;
-
             try {
                 const response = await fetch('http://localhost:5000/api/status');
                 const data = await response.json();
+
+                if (data.daily_score !== undefined) {
+                    updateDashboardUI(data.daily_score, data.active_time_sec, data.stretch_count, data.snooze_count);
+                    saveLocalData(data.daily_score, data.active_time_sec, data.stretch_count, data.snooze_count);
+                }
+
+                if (Date.now() < snoozeUntil) return;
+                if (onCooldown) return;
 
                 if (data.pose_msg && data.pose_msg !== "") {
                     let msg = data.pose_msg;
@@ -284,12 +350,7 @@
                         body = "",
                         url = "";
 
-                    // 💡 [NEW] แยกพาไปหน้า Session ตามประเภทที่ตรวจจับเจอ
-                    if (msg.includes("Forward Head")) {
-                        title = "Watch Your Screen Distance";
-                        body = "Your screen is drawing you in. Pull your chin back and relax your neck.";
-                        url = "session.html?type=neck";
-                    } else if (msg.includes("Rounded Shoulders")) {
+                    if (msg.includes("Forward Head") || msg.includes("Rounded Shoulders")) {
                         title = "Open Your Chest";
                         body = "We noticed a slouch. Take a deep breath and roll your shoulders back.";
                         url = "session.html?type=neck";
@@ -313,10 +374,9 @@
                 const notification = new Notification("KAYA 🔔", {
                     body: title + "\n" + body + "\n\n(คลิกเพื่อทำกายภาพ หรือ กดกากบาทเพื่อพักการแจ้งเตือน 5 นาที)",
                     icon: "https://cdn-icons-png.flaticon.com/512/2950/2950322.png",
-                    requireInteraction: true // บังคับให้ค้างบนจอจนกว่าจะตอบสนอง
+                    requireInteraction: true
                 });
 
-                // 💡 [NEW] ถ้าผู้ใช้คลิกที่แจ้งเตือน (พร้อมไปทำกายภาพ)
                 notification.onclick = function(event) {
                     event.preventDefault();
                     window.focus();
@@ -324,23 +384,25 @@
                     notification.close();
                 };
 
-                // 💡 [NEW] ถ้าผู้ใช้กด X ปิดแจ้งเตือน (Snooze 5 นาที)
                 notification.onclose = function() {
-                    console.log("User dismissed notification. Snoozing for 5 minutes...");
-                    snoozeUntil = Date.now() + (5 * 60 * 1000); // บวกไปอีก 300,000 มิลลิวินาที
-                    onCooldown = false; // ปลดล็อค Cooldown ให้ทำงานได้ใหม่หลังหมดเวลา
+                    snoozeUntil = Date.now() + (5 * 60 * 1000);
+                    onCooldown = false;
+                    fetch('http://localhost:5000/api/snooze', {
+                        method: 'POST'
+                    });
                 };
 
             } else {
-                // Fallback: กรณีเครื่องหรือเบราว์เซอร์ไม่รองรับ
                 let userWantsToFix = confirm("KAYA 🔔 Alert!\n\n" + title + "\n" + body + "\n\nกด OK เพื่อทำกายภาพทันที\nกด Cancel เพื่อพักการแจ้งเตือน 5 นาที (Snooze)");
 
                 if (userWantsToFix) {
                     window.location.href = url;
                 } else {
-                    console.log("User snoozed via popup.");
                     snoozeUntil = Date.now() + (5 * 60 * 1000);
                     onCooldown = false;
+                    fetch('http://localhost:5000/api/snooze', {
+                        method: 'POST'
+                    });
                 }
             }
         }
