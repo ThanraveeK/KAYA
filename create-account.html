@@ -56,7 +56,7 @@
 
         <form class="flex flex-col gap-4 mb-6">
             <input type="text" id="reg_username_input" placeholder="Username" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
-            <input type="email" placeholder="Email address" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
+            <input type="email" id="reg_email_input" placeholder="Email address" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
             <input type="password" placeholder="Password" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
             <input type="password" placeholder="Confirm Password" required class="w-full px-6 py-4 rounded-full bg-kaya-bg/50 border border-kaya-gray text-center text-gray-700 placeholder-kaya-grayDark focus:outline-none focus:ring-2 focus:ring-kaya-greenLight focus:bg-white transition duration-300">
 
@@ -112,6 +112,8 @@
 
         function handleRegister() {
             const user = document.getElementById('reg_username_input').value;
+            // 👇 1. เพิ่มการดึงค่าจากช่องอีเมล
+            const email = document.getElementById('reg_email_input').value;
             const pwd = document.querySelectorAll('input[type="password"]')[0].value;
             const pwdConfirm = document.querySelectorAll('input[type="password"]')[1].value;
             const terms = document.getElementById('terms').checked;
@@ -122,10 +124,25 @@
                 alert("Please enter a username.");
                 return;
             }
+
+            // 👇 2. เพิ่มเงื่อนไขตรวจสอบว่าอีเมลต้องมี @ และ .
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            if (!emailRegex.test(email)) {
+                alert("Please enter a valid email address.");
+                return;
+            }
+
             if (pwd.trim() === "") {
                 alert("Please enter a password.");
                 return;
             }
+
+            // 👇 3. เพิ่มเงื่อนไขตรวจสอบความยาวรหัสผ่าน (ขั้นต่ำ 8 ตัว)
+            if (pwd.length < 8) {
+                alert("Password must be at least 8 characters long.");
+                return;
+            }
+
             if (pwd !== pwdConfirm) {
                 alert("Passwords do not match!");
                 return;
