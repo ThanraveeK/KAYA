@@ -11,19 +11,15 @@ app = Flask(__name__)
 CORS(app)
 
 mp_pose = mp.solutions.pose
-pose = mp_pose.Pose(
-    model_complexity=0, 
-    min_detection_confidence=0.5, 
-    min_tracking_confidence=0.5
-)
+pose = mp_pose.Pose(min_detection_confidence=0.5, min_tracking_confidence=0.5)
 mp_drawing = mp.solutions.drawing_utils
 
 BODY_CONNECTIONS = frozenset([conn for conn in mp_pose.POSE_CONNECTIONS if conn[0] > 10 and conn[1] > 10])
 
 # === ตัวแปรระบบ Login (Mock Database) ===
-users_db = {} # เก็บข้อมูล User แบบ In-memory (ข้อมูลจะรีเซ็ตเมื่อเซิร์ฟเวอร์ Render รีสตาร์ท)
+users_db = {}
 
-# Variables พื้นฐาน
+# Variables พื้นฐานจาก Local
 baseline_shoulder_width = None
 is_calibrating = False
 calibration_start_time = 0
@@ -32,7 +28,6 @@ calibration_data_x = []
 current_calib_msg = "Waiting for camera..."
 current_pose_msg = ""
 tracking_active = False
-
 app_mode = "IDLE"
 
 # โหมดออฟฟิศซินโดรม
@@ -52,22 +47,16 @@ time_left = 3
 instruction_en = "Get Ready"
 target_breathing = "INHALE"
 
-# === ระบบคะแนนสุขภาพ (Health Score System) ===
-daily_score = 100.0
-active_time_sec = 0.0
-stretch_count = 0
-snooze_count = 0
-continuous_bad_posture_sec = 0.0
-session_step_scores = []
-current_phase2_perfect_sec = 0.0
-
-# ตัวแปรเวลาอัจฉริยะ
+# ตัวแปรเวลาและคะแนน
 last_frame_time = 0.0
 elapsed_phase = 0.0
 total_session_time = 120.0
 is_session_complete = False
+daily_score = 100.0
+active_time_sec = 0.0
+stretch_count = 0
+snooze_count = 0
 
-# ลำดับท่าทาง
 NECK_STEPS = [
     {"step": 1, "inst": "Clasp hands at the solar plexus", "type": "clasp"},
     {"step": 2, "inst": "Extend arms to the LEFT", "type": "left"},
@@ -121,36 +110,29 @@ def draw_target_hologram(frame, pose_type, cx, cy, scale, color):
             cv2.circle(frame, v, 10, (255, 255, 255), -1)
             cv2.circle(frame, v, 10, color, 3)
 
-# === API สำหรับรับภาพจากหน้าเว็บมาประมวลผล (แทนที่การใช้ VideoCapture) ===
 @app.route('/api/process_frame', methods=['POST'])
 def process_frame():
     global tracking_active, is_calibrating, calibration_start_time, baseline_shoulder_width, calibration_data_x
     global breathing_state, current_exercise_type, current_step_idx, current_phase, time_left, instruction_en, target_breathing, current_calib_msg, current_pose_msg
     global fhp_start_time, rounded_start_time, static_start_time
     global last_frame_time, elapsed_phase, total_session_time, is_session_complete, app_mode
-    global daily_score, active_time_sec, stretch_count, continuous_bad_posture_sec
-    global session_step_scores, current_phase2_perfect_sec
+    global daily_score, active_time_sec, stretch_count
 
     data = request.json
     if not data or 'image' not in data:
-        return jsonify({"error": "No image provided"}), 400
+        return jsonify({"error": "No image"}), 400
 
-    # แปลง Base64 กลับเป็นภาพ OpenCV
     img_data = data['image'].split(',')[1]
     nparr = np.frombuffer(base64.b64decode(img_data), np.uint8)
     frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if frame is None: return jsonify({"error": "Invalid image"}), 400
 
-    if frame is None:
-        return jsonify({"error": "Invalid image"}), 400
-
-    # คำนวณเวลา (Delta time)
     current_time = time.time()
     if last_frame_time == 0: last_frame_time = current_time
     dt = current_time - last_frame_time
     last_frame_time = current_time
-    if dt > 1.0: dt = 0 # กันเวลาข้ามถ้ารอเฟรมนานเกิน
+    if dt > 1.0: dt = 0 
 
-    # เริ่มประมวลผล (พลิกภาพให้เหมือนกระจก)
     frame = cv2.flip(frame, 1)
     results = pose.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     h, w, _ = frame.shape
@@ -194,23 +176,15 @@ def process_frame():
 
         if baseline_shoulder_width and not is_calibrating:
             if breathing_state == "IDLE":
-                if tracking_active: # ถ้าอยู่ในโหมดเฝ้าระวัง
+                if tracking_active:
                     active_time_sec += dt
+                    # ใช้ Logic ฉบับ Local ดั้งเดิมของคุณ
                     if curr_width < (baseline_shoulder_width * 0.95):
-                        continuous_bad_posture_sec += dt
                         if rounded_start_time is None: rounded_start_time = current_time
-                        elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: 
-                            current_pose_msg = "Rounded Shoulders"
-                        
-                        if continuous_bad_posture_sec >= 300.0:
-                            daily_score = max(0.0, daily_score - 2.0)
-                            continuous_bad_posture_sec = 0.0 
-                    else: 
-                        rounded_start_time = None
-                        continuous_bad_posture_sec = 0.0
-                    
+                        elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: current_pose_msg = "Rounded Shoulders"
+                    else: rounded_start_time = None
+
             elif app_mode == "SESSION":
-                active_time_sec += dt
                 seq = NECK_STEPS if current_exercise_type == "neck" else BACK_STEPS
                 if current_step_idx >= len(seq): current_step_idx = 0 
                 step_info = seq[current_step_idx]
@@ -224,16 +198,10 @@ def process_frame():
                 else:
                     total_session_time -= dt
                     elapsed_phase += dt
-                    
                     if total_session_time <= 0:
                         is_session_complete = True
                         breathing_state = "IDLE"
                         stretch_count += 1
-                        if session_step_scores:
-                            avg_acc = sum(session_step_scores) / len(session_step_scores)
-                            bonus = (avg_acc / 100.0) * 5.0 
-                            daily_score = min(100.0, daily_score + bonus)
-                            session_step_scores.clear()
                     
                     if current_phase == 1:
                         target_breathing = "INHALE"
@@ -246,12 +214,7 @@ def process_frame():
                         if current_exercise_type != "neck":
                             pt = "ready"
                             instruction_en = "Return to READY pose"
-                            
-                        if elapsed_phase >= 3: 
-                            step_score = min(100.0, (current_phase2_perfect_sec / 7.0) * 100.0)
-                            session_step_scores.append(step_score)
-                            current_phase2_perfect_sec = 0.0
-                            current_phase, elapsed_phase, current_step_idx = 1, 0, current_step_idx + 1
+                        if elapsed_phase >= 3: current_phase, elapsed_phase, current_step_idx = 1, 0, current_step_idx + 1
 
                     time_limit = 7 if current_phase == 2 else 3
                     time_left = max(0, int(time_limit - elapsed_phase))
@@ -266,42 +229,27 @@ def process_frame():
                     elif pt == "ready":
                         if lw.y > ls.y and rw.y > rs.y and abs(lw.x - ls.x) < 0.15: is_perfect = True
 
-                    if current_phase == 2 and is_perfect:
-                        current_phase2_perfect_sec += dt
-
                     cx, cy = int((ls.x + rs.x)/2 * w), int((ls.y + rs.y)/2 * h)
                     draw_target_hologram(frame, pt, cx, cy, baseline_shoulder_width * w, (0, 255, 0) if is_perfect else (0, 165, 255))
                     current_pose_msg = "PERFECT!" if is_perfect else "ADJUST POSE"
 
-    # แปลงภาพกลับเป็น Base64 เพื่อส่งคืนให้หน้าเว็บ
-    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 70]) # ลด Quality เพื่อให้ส่งเร็วขึ้น
+    _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
     out_b64 = "data:image/jpeg;base64," + base64.b64encode(buffer).decode('utf-8')
 
     return jsonify({
-        "image": out_b64,
-        "calib_msg": current_calib_msg,
-        "pose_msg": current_pose_msg,
-        "instruction": instruction_en,
-        "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
-        "time_left": time_left,
-        "total_time": max(0, int(total_session_time)),
-        "is_complete": is_session_complete,
-        "daily_score": int(daily_score),
-        "active_time_sec": active_time_sec,
-        "stretch_count": stretch_count,
-        "snooze_count": snooze_count
+        "image": out_b64, "calib_msg": current_calib_msg, "pose_msg": current_pose_msg,
+        "instruction": instruction_en, "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
+        "time_left": time_left, "total_time": max(0, int(total_session_time)), "is_complete": is_session_complete,
+        "daily_score": int(daily_score), "active_time_sec": active_time_sec, "stretch_count": stretch_count, "snooze_count": snooze_count
     })
 
-# === API ระบบ Login ===
 @app.route('/api/register', methods=['POST'])
 def register():
     data = request.json
     user = data.get('username')
     pwd = data.get('password')
-    if not user or not pwd:
-        return jsonify({"status": "error", "message": "Missing info"}), 400
-    if user in users_db:
-        return jsonify({"status": "error", "message": "Username already exists"}), 400
+    if not user or not pwd: return jsonify({"status": "error", "message": "Missing info"}), 400
+    if user in users_db: return jsonify({"status": "error", "message": "Username already exists"}), 400
     users_db[user] = pwd
     return jsonify({"status": "success"})
 
@@ -310,19 +258,16 @@ def login():
     data = request.json
     user = data.get('username')
     pwd = data.get('password')
-    if users_db.get(user) == pwd:
-        return jsonify({"status": "success"})
+    if users_db.get(user) == pwd: return jsonify({"status": "success"})
     return jsonify({"status": "error", "message": "Invalid username or password"}), 401
 
-# API อื่นๆ ที่เหลือคงเดิม
 @app.route('/api/status')
 def get_status():
     return jsonify({
         "calib_msg": current_calib_msg, "pose_msg": current_pose_msg, "instruction": instruction_en, 
         "breathing": target_breathing if breathing_state == "ACTIVE" else "IDLE", 
         "time_left": time_left, "total_time": max(0, int(total_session_time)), "is_complete": is_session_complete,
-        "daily_score": int(daily_score), "active_time_sec": active_time_sec,
-        "stretch_count": stretch_count, "snooze_count": snooze_count
+        "daily_score": int(daily_score), "active_time_sec": active_time_sec, "stretch_count": stretch_count, "snooze_count": snooze_count
     })
 
 @app.route('/api/start_pose', methods=['POST'])
@@ -347,8 +292,7 @@ def calibrate():
 
 @app.route('/api/toggle_session', methods=['POST'])
 def toggle_session():
-    global tracking_active, app_mode
-    global daily_score, active_time_sec, stretch_count, snooze_count 
+    global tracking_active, app_mode, daily_score, active_time_sec, stretch_count, snooze_count 
     data = request.json or {}
     action = data.get('action')
     if action == 'start':
@@ -356,12 +300,10 @@ def toggle_session():
         if 'init_active_time' in data: active_time_sec = float(data['init_active_time'])
         if 'init_stretch' in data: stretch_count = int(data['init_stretch'])
         if 'init_snooze' in data: snooze_count = int(data['init_snooze'])
-        tracking_active = True
-        app_mode = "MONITORING" 
+        tracking_active, app_mode = True, "MONITORING" 
         return jsonify({"status": "started", "active": True})
     elif action == 'stop':
-        tracking_active = False
-        app_mode = "IDLE"
+        tracking_active, app_mode = False, "IDLE"
         return jsonify({"status": "stopped", "active": False})
     return jsonify({"status": "invalid action"}), 400
 
@@ -378,4 +320,4 @@ def register_snooze():
     return jsonify({"status": "snoozed", "score": daily_score})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=7860, debug=False)
