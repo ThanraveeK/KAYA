@@ -116,7 +116,7 @@ def process_frame():
     global breathing_state, current_exercise_type, current_step_idx, current_phase, time_left, instruction_en, target_breathing, current_calib_msg, current_pose_msg
     global fhp_start_time, rounded_start_time, static_start_time
     global last_frame_time, elapsed_phase, total_session_time, is_session_complete, app_mode
-    global daily_score, active_time_sec, stretch_count
+    global daily_score, active_time_sec, stretch_count, snooze_count
 
     data = request.json
     if not data or 'image' not in data:
@@ -178,7 +178,6 @@ def process_frame():
             if breathing_state == "IDLE":
                 if tracking_active:
                     active_time_sec += dt
-                    # ใช้ Logic ฉบับ Local ดั้งเดิมของคุณ
                     if curr_width < (baseline_shoulder_width * 0.95):
                         if rounded_start_time is None: rounded_start_time = current_time
                         elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: current_pose_msg = "Rounded Shoulders"
