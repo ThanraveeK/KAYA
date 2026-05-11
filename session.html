@@ -47,14 +47,22 @@
                     <span id="timerDisplay" class="text-3xl font-bold text-kaya-grayDark">02:00</span>
                 </div>
                 <div class="flex-1 flex flex-col md:flex-row gap-8 mb-6 items-center">
+
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
                         <div id="breathingLabel" class="text-xl font-bold text-kaya-greenDark mb-6 uppercase tracking-widest">GET READY</div>
-                        <div id="breathingCircle" class="w-64 h-64 rounded-full border-[14px] border-kaya-grayDark transition-all duration-[1000ms] bg-transparent mb-6"></div>
+
+                        <div class="relative w-64 h-64 flex items-center justify-center mb-6">
+                            <div id="breathingCircle" class="absolute inset-0 w-full h-full rounded-full border-[14px] border-kaya-grayDark transition-all duration-[1000ms] bg-transparent"></div>
+
+                            <img id="poseImage" src="pic/stretch1.png" class="w-32 h-32 object-contain z-10 transition-opacity duration-300">
+                        </div>
+
                         <div class="flex items-center gap-2">
                             <span class="text-kaya-grayDark text-sm font-bold uppercase">Phase Time:</span>
                             <span id="breathingTimerDisplay" class="text-3xl font-bold text-kaya-greenDark">10</span>
                         </div>
                     </div>
+
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
                         <div class="w-full text-center mb-3"><span id="postureStatusTop" class="text-sm font-bold text-kaya-grayDark uppercase">EVALUATING...</span></div>
                         <div class="w-full h-[70%] rounded-[2.5rem] bg-gray-100 overflow-hidden relative shadow-inner border border-gray-200">
@@ -74,7 +82,19 @@
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const sessionType = urlParams.get('type') || 'neck';
-        document.getElementById('sessionTitle').innerText = sessionType === 'back' ? "Back & Spine Relief" : "Neck & Shoulder Relief";
+
+        const poseImgInit = document.getElementById('poseImage'); // สร้างตัวแปรดึงรูปมาใช้งาน
+
+        // เปลี่ยนทั้ง "ชื่อหัวข้อ" และ "รูปภาพเริ่มต้น" ให้ตรงกับโหมดที่เลือก
+        if (sessionType === 'back') {
+            document.getElementById('sessionTitle').innerText = "Back & Spine Relief";
+            poseImgInit.src = "pic/back_left.png";
+            poseImgInit.classList.add('scale-150'); // 🔥 ซูมรูปโหมดหลังให้ใหญ่ขึ้น 50%
+        } else {
+            document.getElementById('sessionTitle').innerText = "Neck & Shoulder Relief";
+            poseImgInit.src = "pic/clasp.png";
+            poseImgInit.classList.remove('scale-150'); // เอาการซูมออกถ้าเป็นโหมดคอ
+        }
 
         let isPrep = true,
             prepTime = 10;
@@ -82,7 +102,24 @@
             bLabel = document.getElementById('breathingLabel'),
             bCircle = document.getElementById('breathingCircle'),
             bTimer = document.getElementById('breathingTimerDisplay'),
-            statusTop = document.getElementById('postureStatusTop');
+            statusTop = document.getElementById('postureStatusTop'),
+            poseImg = document.getElementById('poseImage'); // ตัวแปรสำหรับรูปภาพ
+
+        // ==========================================
+        // 📌 Mapping คำสั่งจาก Python กับไฟล์รูปภาพของคุณ
+        // ให้แก้ชื่อรูปภาพใน "..." ให้ตรงกับไฟล์ในโฟลเดอร์ pic/ ของคุณได้เลยครับ
+        // ==========================================
+        const poseImageMap = {
+            "Clasp hands at the solar plexus": "pic/clasp.png",
+            "Extend arms to the LEFT": "pic/left.png",
+            "Extend arms to the RIGHT": "pic/right.png",
+            "Extend arms FORWARD": "pic/forward.png",
+            "Extend arms UPWARD": "pic/upward.png",
+            "Place hands on the CROWN": "pic/crown.png",
+            "Left hand on waist, turn head fully LEFT": "pic/back_left.png",
+            "Right hand on waist, turn head fully RIGHT": "pic/back_right.png",
+            "Return to READY pose": "pic/ready.png"
+        };
 
         // ระบบกล้อง
         const hiddenVideo = document.createElement('video');
@@ -129,7 +166,6 @@
                     hiddenCanvas.width = 640;
                     hiddenCanvas.height = 480;
                     ctx.drawImage(hiddenVideo, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-                    // ปรับ quality ลดลงนิดนึงเพื่อความเร็วแบบเดียวกับหน้า calibrate
                     const base64Image = hiddenCanvas.toDataURL('image/jpeg', 0.4);
 
                     try {
@@ -150,7 +186,7 @@
                         if (data.is_complete) {
                             document.getElementById('activeSessionView').classList.add('hidden');
                             document.getElementById('successSessionView').classList.replace('hidden', 'flex');
-                            return; // ถ้าทำกายภาพเสร็จแล้ว ให้หยุดการส่งภาพ
+                            return;
                         }
 
                         if (data.total_time !== undefined) {
@@ -162,34 +198,43 @@
                         bLabel.innerText = data.breathing || "IDLE";
                         bTimer.innerText = data.time_left || 0;
 
+                        // อัปเดตคลาสของวงแหวนหายใจ (ย้ายคลาสพื้นฐานมารวมไว้ตรงนี้)
+                        const baseCircleClass = "absolute inset-0 w-full h-full rounded-full border-[14px] transition-all duration-[1000ms] bg-transparent ";
                         if (data.breathing === "PAUSED") {
-                            bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-grayDark bg-transparent mb-6";
+                            bCircle.className = baseCircleClass + "border-kaya-grayDark";
                             bCircle.classList.remove('glow-active');
                         } else if (data.breathing === "INHALE") {
-                            bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenLight bg-transparent mb-6 scale-110";
+                            bCircle.className = baseCircleClass + "border-kaya-greenLight scale-110";
                             bCircle.classList.remove('glow-active');
                         } else if (data.breathing === "HOLD") {
                             if (data.pose_msg === "PERFECT!") bCircle.classList.add('glow-active');
                             else bCircle.classList.remove('glow-active');
                         } else if (data.breathing === "EXHALE") {
-                            bCircle.className = "w-64 h-64 rounded-full border-[14px] border-kaya-greenDark bg-transparent mb-6 scale-90";
+                            bCircle.className = baseCircleClass + "border-kaya-greenDark scale-90";
                             bCircle.classList.remove('glow-active');
                         }
 
+                        // ==========================================
+                        // อัปเดตรูปภาพตามคำสั่ง Instruction จาก Python
+                        // ==========================================
                         if (data.instruction) {
                             statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
                             statusTop.className = `text-sm font-bold uppercase ${data.pose_msg === 'PERFECT!' ? 'text-kaya-greenDark' : (data.pose_msg && data.pose_msg.includes('FRAME') ? 'text-kaya-grayDark' : 'text-red-500')}`;
+
+                            // เปลี่ยนรูปภาพ
+                            if (poseImageMap[data.instruction]) {
+                                poseImg.src = poseImageMap[data.instruction];
+                            } else {
+                                // ถ้าหาไม่เจอ ให้แสดงรูป Default
+                                poseImg.src = sessionType === 'back' ? "pic/stretch2.png" : "pic/stretch1.png";
+                            }
                         }
                     } catch (e) {
                         console.log("Connection delay");
                     }
                 }
-
-                // รอ 200ms แล้วค่อยดึงเฟรมถัดไป
                 setTimeout(processNextFrame, 200);
             }
-
-            // เรียกทำงานรอบแรก
             processNextFrame();
         }
     </script>

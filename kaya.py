@@ -179,9 +179,14 @@ def process_frame():
                 if tracking_active:
                     active_time_sec += dt
                     if curr_width < (baseline_shoulder_width * 0.95):
-                        if rounded_start_time is None: rounded_start_time = current_time
-                        elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: current_pose_msg = "Rounded Shoulders"
-                    else: rounded_start_time = None
+                        if rounded_start_time is None: 
+                            rounded_start_time = current_time
+                        elif (current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT: 
+                            current_pose_msg = "Rounded Shoulders"
+                            daily_score = max(0.0, daily_score - 2.0) # หัก 2 คะแนน
+                            rounded_start_time = current_time       # รีเซ็ตเวลาเพื่อเริ่มจับใหม่
+                    else: 
+                        rounded_start_time = None
 
             elif app_mode == "SESSION":
                 seq = NECK_STEPS if current_exercise_type == "neck" else BACK_STEPS
@@ -201,6 +206,8 @@ def process_frame():
                         is_session_complete = True
                         breathing_state = "IDLE"
                         stretch_count += 1
+                        # +2 คะแนนถ้าออกกำลังกายจบ
+                        daily_score = min(100.0, daily_score + 2.0)
                     
                     if current_phase == 1:
                         target_breathing = "INHALE"
