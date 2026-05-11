@@ -31,9 +31,9 @@ tracking_active = False
 app_mode = "IDLE"
 
 # โหมดออฟฟิศซินโดรม
-FHP_TIME_LIMIT = 2.0       
-ROUNDED_TIME_LIMIT = 2.0   
-STATIC_TIME_LIMIT = 5.0   
+FHP_TIME_LIMIT = 300      
+ROUNDED_TIME_LIMIT = 300  
+STATIC_TIME_LIMIT = 2700   
 fhp_start_time = None
 rounded_start_time = None
 static_start_time = None

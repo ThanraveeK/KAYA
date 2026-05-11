@@ -109,7 +109,7 @@
                 if (prepTime <= 0) {
                     isPrep = false;
                     clearInterval(prepLoop);
-                    fetch('https://kaya-47w7.onrender.com/api/start_pose', {
+                    fetch('https://thanravee-kaya-backend.hf.space/api/start_pose', {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -133,7 +133,7 @@
                     const base64Image = hiddenCanvas.toDataURL('image/jpeg', 0.4);
 
                     try {
-                        const response = await fetch('https://kaya-47w7.onrender.com/api/process_frame', {
+                        const response = await fetch('https://thanravee-kaya-backend.hf.space/api/process_frame', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json'
