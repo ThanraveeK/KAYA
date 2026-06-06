@@ -6,6 +6,12 @@
     <title>KAYA - Session</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&family=Nunito:wght@400;700&display=swap" rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+
     <script>
         tailwind.config = {
             theme: {
@@ -53,7 +59,6 @@
 
                         <div class="relative w-64 h-64 flex items-center justify-center mb-6">
                             <div id="breathingCircle" class="absolute inset-0 w-full h-full rounded-full border-[14px] border-kaya-grayDark transition-all duration-[1000ms] bg-transparent"></div>
-
                             <img id="poseImage" src="pic/stretch1.png" class="w-32 h-32 object-contain z-10 transition-opacity duration-300">
                         </div>
 
@@ -66,7 +71,7 @@
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
                         <div class="w-full text-center mb-3"><span id="postureStatusTop" class="text-sm font-bold text-kaya-grayDark uppercase">EVALUATING...</span></div>
                         <div class="w-full h-[70%] rounded-[2.5rem] bg-gray-100 overflow-hidden relative shadow-inner border border-gray-200">
-                            <img id="webcamVideo" class="absolute inset-0 w-full h-full object-cover">
+                            <canvas id="outputCanvas" class="absolute inset-0 w-full h-full object-cover"></canvas>
                         </div>
                     </div>
                 </div>
@@ -79,36 +84,29 @@
         </div>
     </div>
 
+    <video id="hiddenVideo" class="hidden"></video>
+
     <script>
         const urlParams = new URLSearchParams(window.location.search);
         const sessionType = urlParams.get('type') || 'neck';
+        const poseImg = document.getElementById('poseImage');
 
-        const poseImgInit = document.getElementById('poseImage'); // สร้างตัวแปรดึงรูปมาใช้งาน
-
-        // เปลี่ยนทั้ง "ชื่อหัวข้อ" และ "รูปภาพเริ่มต้น" ให้ตรงกับโหมดที่เลือก
         if (sessionType === 'back') {
             document.getElementById('sessionTitle').innerText = "Back & Spine Relief";
-            poseImgInit.src = "pic/back_left.png";
-            poseImgInit.classList.add('scale-150'); // 🔥 ซูมรูปโหมดหลังให้ใหญ่ขึ้น 50%
+            poseImg.src = "pic/back_left.png";
+            poseImg.classList.add('scale-150');
         } else {
             document.getElementById('sessionTitle').innerText = "Neck & Shoulder Relief";
-            poseImgInit.src = "pic/clasp.png";
-            poseImgInit.classList.remove('scale-150'); // เอาการซูมออกถ้าเป็นโหมดคอ
+            poseImg.src = "pic/clasp.png";
+            poseImg.classList.remove('scale-150');
         }
 
-        let isPrep = true,
-            prepTime = 10;
         const timerDisplay = document.getElementById('timerDisplay'),
             bLabel = document.getElementById('breathingLabel'),
             bCircle = document.getElementById('breathingCircle'),
             bTimer = document.getElementById('breathingTimerDisplay'),
-            statusTop = document.getElementById('postureStatusTop'),
-            poseImg = document.getElementById('poseImage'); // ตัวแปรสำหรับรูปภาพ
+            statusTop = document.getElementById('postureStatusTop');
 
-        // ==========================================
-        // 📌 Mapping คำสั่งจาก Python กับไฟล์รูปภาพของคุณ
-        // ให้แก้ชื่อรูปภาพใน "..." ให้ตรงกับไฟล์ในโฟลเดอร์ pic/ ของคุณได้เลยครับ
-        // ==========================================
         const poseImageMap = {
             "Clasp hands at the solar plexus": "pic/clasp.png",
             "Extend arms to the LEFT": "pic/left.png",
@@ -121,24 +119,76 @@
             "Return to READY pose": "pic/ready.png"
         };
 
-        // ระบบกล้อง
-        const hiddenVideo = document.createElement('video');
-        hiddenVideo.autoplay = true;
-        hiddenVideo.playsInline = true;
-        hiddenVideo.muted = true;
-        const hiddenCanvas = document.createElement('canvas');
-        const ctx = hiddenCanvas.getContext('2d');
-        const displayImg = document.getElementById('webcamVideo');
+        const NECK_STEPS = [{
+            step: 1,
+            inst: "Clasp hands at the solar plexus",
+            type: "clasp"
+        }, {
+            step: 2,
+            inst: "Extend arms to the LEFT",
+            type: "left"
+        }, {
+            step: 3,
+            inst: "Clasp hands at the solar plexus",
+            type: "clasp"
+        }, {
+            step: 4,
+            inst: "Extend arms to the RIGHT",
+            type: "right"
+        }, {
+            step: 5,
+            inst: "Clasp hands at the solar plexus",
+            type: "clasp"
+        }, {
+            step: 6,
+            inst: "Extend arms FORWARD",
+            type: "forward"
+        }, {
+            step: 7,
+            inst: "Clasp hands at the solar plexus",
+            type: "clasp"
+        }, {
+            step: 8,
+            inst: "Extend arms UPWARD",
+            type: "upward"
+        }, {
+            step: 9,
+            inst: "Place hands on the CROWN",
+            type: "crown"
+        }, {
+            step: 10,
+            inst: "Clasp hands at the solar plexus",
+            type: "clasp"
+        }, ];
 
-        navigator.mediaDevices.getUserMedia({
-                video: true
-            })
-            .then(stream => {
-                hiddenVideo.srcObject = stream;
-                hiddenVideo.play();
-            })
-            .catch(err => alert("Camera Error: " + err.message + "\nโปรดตรวจสอบว่าเปิดเว็บผ่าน HTTPS หรือ Vercel หรือยัง"));
+        const BACK_STEPS = [{
+            step: 1,
+            inst: "Left hand on waist, turn head fully LEFT",
+            type: "back_left"
+        }, {
+            step: 2,
+            inst: "Right hand on waist, turn head fully RIGHT",
+            type: "back_right"
+        }, ];
 
+        let isPrep = true;
+        let prepTime = 10;
+        let sessionActive = false;
+
+        let current_step_idx = 0;
+        let current_phase = 1;
+        let last_frame_time = 0;
+        let elapsed_phase = 0;
+        let total_session_time = 120.0;
+        let is_session_complete = false;
+        let current_phase2_perfect_sec = 0.0;
+        let session_step_scores = [];
+
+        const videoElement = document.getElementById('hiddenVideo');
+        const canvasElement = document.getElementById('outputCanvas');
+        const ctx = canvasElement.getContext('2d');
+
+        // เริ่มนับถอยหลังเตรียมตัว
         const prepLoop = setInterval(() => {
             if (isPrep) {
                 prepTime--;
@@ -146,97 +196,226 @@
                 if (prepTime <= 0) {
                     isPrep = false;
                     clearInterval(prepLoop);
-                    fetch('https://thanravee-kaya-backend.hf.space/api/start_pose', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            type: sessionType
-                        })
-                    });
-                    startSync();
+                    sessionActive = true;
+                    last_frame_time = Date.now() / 1000.0;
                 }
             }
         }, 1000);
 
-        async function startSync() {
-            async function processNextFrame() {
-                if (hiddenVideo.readyState >= 2) {
-                    hiddenCanvas.width = 640;
-                    hiddenCanvas.height = 480;
-                    ctx.drawImage(hiddenVideo, 0, 0, hiddenCanvas.width, hiddenCanvas.height);
-                    const base64Image = hiddenCanvas.toDataURL('image/jpeg', 0.4);
+        // ====== 🧠 Frontend AI Logic ======
+        function onResults(results) {
+            ctx.save();
+            ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            ctx.translate(canvasElement.width, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
 
-                    try {
-                        const response = await fetch('https://thanravee-kaya-backend.hf.space/api/process_frame', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                image: base64Image
-                            })
-                        });
-
-                        const data = await response.json();
-
-                        if (data.image) displayImg.src = data.image;
-
-                        if (data.is_complete) {
-                            document.getElementById('activeSessionView').classList.add('hidden');
-                            document.getElementById('successSessionView').classList.replace('hidden', 'flex');
-                            return;
-                        }
-
-                        if (data.total_time !== undefined) {
-                            let min = Math.floor(data.total_time / 60),
-                                sec = data.total_time % 60;
-                            timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-                        }
-
-                        bLabel.innerText = data.breathing || "IDLE";
-                        bTimer.innerText = data.time_left || 0;
-
-                        // อัปเดตคลาสของวงแหวนหายใจ (ย้ายคลาสพื้นฐานมารวมไว้ตรงนี้)
-                        const baseCircleClass = "absolute inset-0 w-full h-full rounded-full border-[14px] transition-all duration-[1000ms] bg-transparent ";
-                        if (data.breathing === "PAUSED") {
-                            bCircle.className = baseCircleClass + "border-kaya-grayDark";
-                            bCircle.classList.remove('glow-active');
-                        } else if (data.breathing === "INHALE") {
-                            bCircle.className = baseCircleClass + "border-kaya-greenLight scale-110";
-                            bCircle.classList.remove('glow-active');
-                        } else if (data.breathing === "HOLD") {
-                            if (data.pose_msg === "PERFECT!") bCircle.classList.add('glow-active');
-                            else bCircle.classList.remove('glow-active');
-                        } else if (data.breathing === "EXHALE") {
-                            bCircle.className = baseCircleClass + "border-kaya-greenDark scale-90";
-                            bCircle.classList.remove('glow-active');
-                        }
-
-                        // ==========================================
-                        // อัปเดตรูปภาพตามคำสั่ง Instruction จาก Python
-                        // ==========================================
-                        if (data.instruction) {
-                            statusTop.innerText = data.instruction + (data.pose_msg === "PERFECT!" ? " (PERFECT)" : (data.pose_msg === "STAY IN FRAME TO RESUME" ? "" : " (ADJUST POSE)"));
-                            statusTop.className = `text-sm font-bold uppercase ${data.pose_msg === 'PERFECT!' ? 'text-kaya-greenDark' : (data.pose_msg && data.pose_msg.includes('FRAME') ? 'text-kaya-grayDark' : 'text-red-500')}`;
-
-                            // เปลี่ยนรูปภาพ
-                            if (poseImageMap[data.instruction]) {
-                                poseImg.src = poseImageMap[data.instruction];
-                            } else {
-                                // ถ้าหาไม่เจอ ให้แสดงรูป Default
-                                poseImg.src = sessionType === 'back' ? "pic/stretch2.png" : "pic/stretch1.png";
-                            }
-                        }
-                    } catch (e) {
-                        console.log("Connection delay");
-                    }
+            // ถ้ากำลังเตรียมตัว ให้วาดแค่โครงกระดูกแล้วจบไปเลย
+            if (!sessionActive) {
+                if (results.poseLandmarks) {
+                    drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
+                        color: '#ffffff',
+                        lineWidth: 4
+                    });
+                    drawLandmarks(ctx, results.poseLandmarks, {
+                        color: '#9fae9a',
+                        lineWidth: 2,
+                        radius: 4
+                    });
                 }
-                setTimeout(processNextFrame, 200);
+                ctx.restore();
+                return;
             }
-            processNextFrame();
+
+            // ถ้าไม่เจอตัวคน
+            if (!results.poseLandmarks) {
+                statusTop.innerText = "STAY IN FRAME TO RESUME";
+                statusTop.className = "text-sm font-bold uppercase text-kaya-grayDark";
+                bLabel.innerText = "PAUSED";
+                bCircle.className = "absolute inset-0 w-full h-full rounded-full border-[14px] transition-all duration-[1000ms] bg-transparent border-kaya-grayDark";
+                bCircle.classList.remove('glow-active');
+                last_frame_time = Date.now() / 1000.0; // หยุดเวลาไว้
+                ctx.restore();
+                return;
+            }
+
+            // วาดโครงกระดูก
+            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
+                color: '#ffffff',
+                lineWidth: 4
+            });
+            drawLandmarks(ctx, results.poseLandmarks, {
+                color: '#9fae9a',
+                lineWidth: 2,
+                radius: 4
+            });
+
+            let current_time = Date.now() / 1000.0;
+            let dt = current_time - last_frame_time;
+            last_frame_time = current_time;
+            if (dt > 1.0) dt = 0;
+
+            let seq = sessionType === "neck" ? NECK_STEPS : BACK_STEPS;
+            let step_info = seq[current_step_idx % seq.length];
+            let instruction_en = step_info.inst;
+            let pt = step_info.type;
+
+            total_session_time -= dt;
+            elapsed_phase += dt;
+
+            // จบเซสชัน
+            if (total_session_time <= 0 && !is_session_complete) {
+                is_session_complete = true;
+                document.getElementById('activeSessionView').classList.add('hidden');
+                document.getElementById('successSessionView').classList.replace('hidden', 'flex');
+
+                // บันทึกคะแนนลง LocalStorage แทนการส่งไป Backend
+                let user = localStorage.getItem('currentUser') || 'guest';
+                let today = new Date();
+                let key = `kaya_data_${user}_${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
+                let localData = JSON.parse(localStorage.getItem(key)) || {
+                    score: 100,
+                    active_time: 0,
+                    stretch: 0,
+                    snooze: 0
+                };
+                localData.stretch += 1;
+
+                if (session_step_scores.length > 0) {
+                    let avg_acc = session_step_scores.reduce((a, b) => a + b, 0) / session_step_scores.length;
+                    let bonus = (avg_acc / 100.0) * 5.0;
+                    localData.score = Math.min(100.0, localData.score + bonus);
+                }
+                localStorage.setItem(key, JSON.stringify(localData));
+
+                ctx.restore();
+                return;
+            }
+
+            let target_breathing = "INHALE";
+            // Phase Logic
+            if (current_phase === 1) {
+                target_breathing = "INHALE";
+                if (elapsed_phase >= 3) {
+                    current_phase = 2;
+                    elapsed_phase = 0;
+                }
+            } else if (current_phase === 2) {
+                target_breathing = "HOLD";
+                if (elapsed_phase >= 7) {
+                    current_phase = 3;
+                    elapsed_phase = 0;
+                }
+            } else if (current_phase === 3) {
+                target_breathing = "EXHALE";
+                if (sessionType !== "neck") {
+                    pt = "ready";
+                    instruction_en = "Return to READY pose";
+                }
+                if (elapsed_phase >= 3) {
+                    let step_score = Math.min(100.0, (current_phase2_perfect_sec / 7.0) * 100.0);
+                    session_step_scores.push(step_score);
+                    current_phase2_perfect_sec = 0.0;
+                    current_phase = 1;
+                    elapsed_phase = 0;
+                    current_step_idx++;
+                }
+            }
+
+            let time_limit = (current_phase === 2) ? 7 : 3;
+            let time_left = Math.max(0, Math.floor(time_limit - elapsed_phase));
+
+            // ตรวจสอบความถูกต้องของท่าทาง
+            let is_perfect = false;
+            let lm = results.poseLandmarks;
+            let ls = lm[11],
+                rs = lm[12],
+                lw = lm[15],
+                rw = lm[16],
+                lh = lm[23],
+                rh = lm[24],
+                nose = lm[0];
+
+            if (pt === "clasp") {
+                if (Math.abs(lw.x - rw.x) < 0.12 && lw.y > ls.y - 0.1) is_perfect = true;
+            } else if (pt === "back_left") {
+                if (lw.y > ls.y && lw.y < lh.y && nose.x < (ls.x + rs.x) / 2 - 0.05) is_perfect = true;
+            } else if (pt === "back_right") {
+                if (rw.y > rs.y && rw.y < rh.y && nose.x > (ls.x + rs.x) / 2 + 0.05) is_perfect = true;
+            } else if (pt === "ready") {
+                if (lw.y > ls.y && rw.y > rs.y && Math.abs(lw.x - ls.x) < 0.15) is_perfect = true;
+            } else {
+                is_perfect = true; // สำหรับท่าอื่นๆ ที่ไม่ได้บังคับเข้มงวด
+            }
+
+            if (current_phase === 2 && is_perfect) {
+                current_phase2_perfect_sec += dt;
+            }
+
+            // อัปเดต UI 
+            let min = Math.floor(Math.max(0, total_session_time) / 60);
+            let sec = Math.floor(Math.max(0, total_session_time) % 60);
+            timerDisplay.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+            bLabel.innerText = target_breathing;
+            bTimer.innerText = time_left;
+
+            const baseCircleClass = "absolute inset-0 w-full h-full rounded-full border-[14px] transition-all duration-[1000ms] bg-transparent ";
+            if (target_breathing === "INHALE") {
+                bCircle.className = baseCircleClass + "border-kaya-greenLight scale-110";
+                bCircle.classList.remove('glow-active');
+            } else if (target_breathing === "HOLD") {
+                if (is_perfect) {
+                    bCircle.className = baseCircleClass + "border-kaya-yellow";
+                    bCircle.classList.add('glow-active');
+                } else {
+                    bCircle.className = baseCircleClass + "border-kaya-grayDark";
+                    bCircle.classList.remove('glow-active');
+                }
+            } else if (target_breathing === "EXHALE") {
+                bCircle.className = baseCircleClass + "border-kaya-greenDark scale-90";
+                bCircle.classList.remove('glow-active');
+            }
+
+            statusTop.innerText = instruction_en + (is_perfect ? " (PERFECT)" : " (ADJUST POSE)");
+            statusTop.className = `text-sm font-bold uppercase ${is_perfect ? 'text-kaya-greenDark' : 'text-red-500'}`;
+
+            if (poseImageMap[instruction_en]) {
+                poseImg.src = poseImageMap[instruction_en];
+            } else {
+                poseImg.src = sessionType === 'back' ? "pic/stretch2.png" : "pic/stretch1.png";
+            }
+
+            ctx.restore();
         }
+
+        const pose = new Pose({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+            }
+        });
+        pose.setOptions({
+            modelComplexity: 1, // สามารถลดเป็น 0 ได้ถ้าต้องการให้เบาลงอีก
+            smoothLandmarks: true,
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5
+        });
+        pose.onResults(onResults);
+
+        const camera = new Camera(videoElement, {
+            onFrame: async() => {
+                await pose.send({
+                    image: videoElement
+                });
+            },
+            width: 640,
+            height: 480
+        });
+
+        window.addEventListener('load', () => {
+            camera.start().catch(err => {
+                alert("Camera Error: " + err.message);
+            });
+        });
     </script>
 </body>
 
