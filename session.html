@@ -71,7 +71,7 @@
                     <div class="flex-1 flex flex-col items-center justify-center relative w-full h-full">
                         <div class="w-full text-center mb-3"><span id="postureStatusTop" class="text-sm font-bold text-kaya-grayDark uppercase">EVALUATING...</span></div>
                         <div class="w-full h-[70%] rounded-[2.5rem] bg-gray-100 overflow-hidden relative shadow-inner border border-gray-200">
-                            <canvas id="outputCanvas" class="absolute inset-0 w-full h-full object-cover"></canvas>
+                            <canvas id="outputCanvas" class="w-full h-full object-cover"></canvas>
                         </div>
                     </div>
                 </div>
@@ -84,7 +84,7 @@
         </div>
     </div>
 
-    <video id="hiddenVideo" class="hidden"></video>
+    <video id="hiddenVideo" autoplay playsinline muted class="hidden"></video>
 
     <script>
         const urlParams = new URLSearchParams(window.location.search);
@@ -188,7 +188,113 @@
         const canvasElement = document.getElementById('outputCanvas');
         const ctx = canvasElement.getContext('2d');
 
-        // เริ่มนับถอยหลังเตรียมตัว
+        // ฟังก์ชันวาดเป้าหมาย Hologram จำลองจาก Python OpenCV
+        function drawTargetHologram(ctx, poseType, cx, cy, scale, color) {
+            const pts = {};
+            if (poseType === 'clasp') {
+                Object.assign(pts, {
+                    'L_SH': [-0.5, 0],
+                    'R_SH': [0.5, 0],
+                    'L_EL': [-0.6, 0.4],
+                    'R_EL': [0.6, 0.4],
+                    'L_WR': [-0.05, 0.4],
+                    'R_WR': [0.05, 0.4]
+                });
+            } else if (poseType === 'left') {
+                Object.assign(pts, {
+                    'L_SH': [-0.5, 0],
+                    'R_SH': [0.5, 0],
+                    'L_EL': [-1.1, 0.1],
+                    'R_EL': [0, 0.5],
+                    'L_WR': [-1.4, 0],
+                    'R_WR': [-1.4, 0]
+                });
+            } else if (poseType === 'right') {
+                Object.assign(pts, {
+                    'L_SH': [-0.5, 0],
+                    'R_SH': [0.5, 0],
+                    'L_EL': [0, 0.5],
+                    'R_EL': [1.1, 0.1],
+                    'L_WR': [1.4, 0],
+                    'R_WR': [1.4, 0]
+                });
+            } else if (poseType === 'back_left') {
+                Object.assign(pts, {
+                    'L_SH': [-0.5, 0],
+                    'R_SH': [0.5, 0],
+                    'L_EL': [-0.8, 0.5],
+                    'R_EL': [0.6, 0.8],
+                    'L_WR': [-0.6, 0.9],
+                    'R_WR': [0.6, 1.2],
+                    'HEAD': [-0.2, -0.7]
+                });
+            } else if (poseType === 'back_right') {
+                Object.assign(pts, {
+                    'L_SH': [-0.5, 0],
+                    'R_SH': [0.5, 0],
+                    'L_EL': [-0.6, 0.8],
+                    'R_EL': [0.8, 0.5],
+                    'L_WR': [-0.6, 1.2],
+                    'R_WR': [0.6, 0.9],
+                    'HEAD': [0.2, -0.7]
+                });
+            } else if (poseType === 'ready') {
+                Object.assign(pts, {
+                    'L_SH': [-0.5, 0],
+                    'R_SH': [0.5, 0],
+                    'L_EL': [-0.5, 0.5],
+                    'R_EL': [0.5, 0.5],
+                    'L_WR': [-0.5, 1.0],
+                    'R_WR': [0.5, 1.0]
+                });
+            }
+
+            if (Object.keys(pts).length === 0) return;
+            if (!pts['HEAD']) pts['HEAD'] = [0, -0.7];
+
+            const px_pts = {};
+            for (let k in pts) {
+                px_pts[k] = {
+                    x: cx + pts[k][0] * scale,
+                    y: cy + pts[k][1] * scale
+                };
+            }
+
+            ctx.lineWidth = 8;
+            ctx.strokeStyle = color;
+            const connections = [
+                ['L_SH', 'L_EL'],
+                ['L_EL', 'L_WR'],
+                ['R_SH', 'R_EL'],
+                ['R_EL', 'R_WR'],
+                ['L_SH', 'R_SH']
+            ];
+            for (let pair of connections) {
+                if (px_pts[pair[0]] && px_pts[pair[1]]) {
+                    ctx.beginPath();
+                    ctx.moveTo(px_pts[pair[0]].x, px_pts[pair[0]].y);
+                    ctx.lineTo(px_pts[pair[1]].x, px_pts[pair[1]].y);
+                    ctx.stroke();
+                }
+            }
+
+            ctx.beginPath();
+            ctx.arc(px_pts['HEAD'].x, px_pts['HEAD'].y, scale * 0.4, 0, 2 * Math.PI);
+            ctx.stroke();
+
+            for (let k in px_pts) {
+                if (k !== 'HEAD') {
+                    ctx.beginPath();
+                    ctx.arc(px_pts[k].x, px_pts[k].y, 10, 0, 2 * Math.PI);
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fill();
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = color;
+                    ctx.stroke();
+                }
+            }
+        }
+
         const prepLoop = setInterval(() => {
             if (isPrep) {
                 prepTime--;
@@ -202,52 +308,84 @@
             }
         }, 1000);
 
-        // ====== 🧠 Frontend AI Logic ======
+        // ====== 🧠 Frontend AI Logic (เลียนแบบ Backend 100%) ======
         function onResults(results) {
-            ctx.save();
-            ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            ctx.translate(canvasElement.width, 0);
-            ctx.scale(-1, 1);
-            ctx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            if (!videoElement.videoWidth) return;
 
-            // ถ้ากำลังเตรียมตัว ให้วาดแค่โครงกระดูกแล้วจบไปเลย
+            if (canvasElement.width !== videoElement.videoWidth) {
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+            }
+
+            let w = canvasElement.width;
+            let h = canvasElement.height;
+
+            ctx.save();
+            ctx.clearRect(0, 0, w, h);
+            ctx.translate(w, 0);
+            ctx.scale(-1, 1);
+            ctx.drawImage(results.image, 0, 0, w, h);
+
             if (!sessionActive) {
                 if (results.poseLandmarks) {
-                    drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
-                        color: '#ffffff',
-                        lineWidth: 4
+                    results.poseLandmarks.forEach((lm, i) => {
+                        if (i <= 10) lm.visibility = 0;
+                    });
+                    const BODY_CONNECTIONS = POSE_CONNECTIONS.filter(c => c[0] > 10 && c[1] > 10);
+                    drawConnectors(ctx, results.poseLandmarks, BODY_CONNECTIONS, {
+                        color: '#FFFFFF',
+                        lineWidth: 3
                     });
                     drawLandmarks(ctx, results.poseLandmarks, {
-                        color: '#9fae9a',
+                        color: '#FF0000',
                         lineWidth: 2,
-                        radius: 4
+                        radius: 3
                     });
                 }
                 ctx.restore();
                 return;
             }
 
-            // ถ้าไม่เจอตัวคน
-            if (!results.poseLandmarks) {
+            let lm = results.poseLandmarks;
+            if (!lm) {
                 statusTop.innerText = "STAY IN FRAME TO RESUME";
                 statusTop.className = "text-sm font-bold uppercase text-kaya-grayDark";
                 bLabel.innerText = "PAUSED";
                 bCircle.className = "absolute inset-0 w-full h-full rounded-full border-[14px] transition-all duration-[1000ms] bg-transparent border-kaya-grayDark";
                 bCircle.classList.remove('glow-active');
-                last_frame_time = Date.now() / 1000.0; // หยุดเวลาไว้
+                last_frame_time = Date.now() / 1000.0;
                 ctx.restore();
                 return;
             }
 
-            // วาดโครงกระดูก
-            drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
-                color: '#ffffff',
-                lineWidth: 4
+            let nose = lm[0],
+                ls = lm[11],
+                rs = lm[12];
+            let core_vis = Math.min(nose.visibility || 0, ls.visibility || 0, rs.visibility || 0);
+            if (core_vis < 0.5) {
+                statusTop.innerText = "STAY IN FRAME TO RESUME";
+                statusTop.className = "text-sm font-bold uppercase text-kaya-grayDark";
+                bLabel.innerText = "PAUSED";
+                bCircle.className = "absolute inset-0 w-full h-full rounded-full border-[14px] transition-all duration-[1000ms] bg-transparent border-kaya-grayDark";
+                bCircle.classList.remove('glow-active');
+                last_frame_time = Date.now() / 1000.0;
+                ctx.restore();
+                return;
+            }
+
+            // ซ่อนใบหน้า & วาดกระดูกแบบ OpenCV
+            results.poseLandmarks.forEach((landmark, i) => {
+                if (i <= 10) landmark.visibility = 0;
+            });
+            const BODY_CONNECTIONS = POSE_CONNECTIONS.filter(c => c[0] > 10 && c[1] > 10);
+            drawConnectors(ctx, results.poseLandmarks, BODY_CONNECTIONS, {
+                color: '#FFFFFF',
+                lineWidth: 3
             });
             drawLandmarks(ctx, results.poseLandmarks, {
-                color: '#9fae9a',
+                color: '#FF0000',
                 lineWidth: 2,
-                radius: 4
+                radius: 3
             });
 
             let current_time = Date.now() / 1000.0;
@@ -263,13 +401,11 @@
             total_session_time -= dt;
             elapsed_phase += dt;
 
-            // จบเซสชัน
             if (total_session_time <= 0 && !is_session_complete) {
                 is_session_complete = true;
                 document.getElementById('activeSessionView').classList.add('hidden');
                 document.getElementById('successSessionView').classList.replace('hidden', 'flex');
 
-                // บันทึกคะแนนลง LocalStorage แทนการส่งไป Backend
                 let user = localStorage.getItem('currentUser') || 'guest';
                 let today = new Date();
                 let key = `kaya_data_${user}_${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
@@ -293,7 +429,6 @@
             }
 
             let target_breathing = "INHALE";
-            // Phase Logic
             if (current_phase === 1) {
                 target_breathing = "INHALE";
                 if (elapsed_phase >= 3) {
@@ -325,16 +460,11 @@
             let time_limit = (current_phase === 2) ? 7 : 3;
             let time_left = Math.max(0, Math.floor(time_limit - elapsed_phase));
 
-            // ตรวจสอบความถูกต้องของท่าทาง
             let is_perfect = false;
-            let lm = results.poseLandmarks;
-            let ls = lm[11],
-                rs = lm[12],
-                lw = lm[15],
+            let lw = lm[15],
                 rw = lm[16],
                 lh = lm[23],
-                rh = lm[24],
-                nose = lm[0];
+                rh = lm[24];
 
             if (pt === "clasp") {
                 if (Math.abs(lw.x - rw.x) < 0.12 && lw.y > ls.y - 0.1) is_perfect = true;
@@ -345,12 +475,21 @@
             } else if (pt === "ready") {
                 if (lw.y > ls.y && rw.y > rs.y && Math.abs(lw.x - ls.x) < 0.15) is_perfect = true;
             } else {
-                is_perfect = true; // สำหรับท่าอื่นๆ ที่ไม่ได้บังคับเข้มงวด
+                is_perfect = true;
             }
 
             if (current_phase === 2 && is_perfect) {
                 current_phase2_perfect_sec += dt;
             }
+
+            // คำนวณวาดเป้า Hologram สีเขียว/ส้ม แบบดั้งเดิม
+            let baseline = parseFloat(localStorage.getItem('kaya_baseline_' + (localStorage.getItem('currentUser') || 'guest'))) || 0.25;
+            let scale = baseline * w;
+            let cx = ((ls.x + rs.x) / 2) * w;
+            let cy = ((ls.y + rs.y) / 2) * h;
+            let color = is_perfect ? '#00FF00' : '#FFA500'; // สีเขียว = Perfect, สีส้ม = Adjust Pose
+
+            drawTargetHologram(ctx, pt, cx, cy, scale, color);
 
             // อัปเดต UI 
             let min = Math.floor(Math.max(0, total_session_time) / 60);
@@ -394,7 +533,7 @@
             }
         });
         pose.setOptions({
-            modelComplexity: 1, // สามารถลดเป็น 0 ได้ถ้าต้องการให้เบาลงอีก
+            modelComplexity: 1,
             smoothLandmarks: true,
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5

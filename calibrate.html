@@ -102,10 +102,11 @@
             " Waiting for camera... "
         </p>
 
-        <video id="hiddenVideo" class="hidden"></video>
+        <video id="hiddenVideo" autoplay playsinline muted class="hidden"></video>
 
         <div class="relative w-full max-w-2xl aspect-[4/3] rounded-[2.5rem] border-[12px] border-kaya-greenLight bg-white shadow-xl shadow-kaya-greenDark/10 overflow-hidden mb-8">
-            <canvas id="outputCanvas" class="absolute inset-0 w-full h-full object-cover"></canvas>
+            <canvas id="outputCanvas" class="w-full h-full object-cover"></canvas>
+
             <div id="cameraLoading" class="absolute inset-0 flex items-center justify-center bg-gray-50 text-kaya-grayDark font-medium z-10">
                 <div class="flex flex-col items-center gap-3">
                     <svg class="w-10 h-10 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
@@ -167,25 +168,45 @@
             }
         }
 
-        // ====== 🧠 Frontend AI Logic ======
+        // ====== 🧠 Frontend AI Logic (เลียนแบบ Backend 100%) ======
         function onResults(results) {
+            if (!videoElement.videoWidth) return;
+
+            // ตั้งค่า Resolution ของ Canvas ให้ตรงกับกล้องเป๊ะๆ เพื่อรักษา Aspect Ratio ดั้งเดิม
+            if (canvasElement.width !== videoElement.videoWidth) {
+                canvasElement.width = videoElement.videoWidth;
+                canvasElement.height = videoElement.videoHeight;
+            }
+
+            let w = canvasElement.width;
+            let h = canvasElement.height;
+
             ctx.save();
-            ctx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-            // พลิกกล้องให้เหมือนกระจก
-            ctx.translate(canvasElement.width, 0);
+            ctx.clearRect(0, 0, w, h);
+
+            // พลิกกล้องซ้ายขวาให้เหมือนกระจก (เหมือน cv2.flip)
+            ctx.translate(w, 0);
             ctx.scale(-1, 1);
-            ctx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            ctx.drawImage(results.image, 0, 0, w, h);
 
             if (results.poseLandmarks) {
-                // วาดโครงกระดูก
-                drawConnectors(ctx, results.poseLandmarks, POSE_CONNECTIONS, {
-                    color: '#ffffff',
-                    lineWidth: 4
+                // 1. ซ่อนใบหน้า (Visibility = 0) เหมือนใน OpenCV
+                results.poseLandmarks.forEach((lm, i) => {
+                    if (i <= 10) lm.visibility = 0;
                 });
+
+                // 2. วาดเส้นกระดูกเฉพาะช่วงตัว (สีขาว เส้นหนา)
+                const BODY_CONNECTIONS = POSE_CONNECTIONS.filter(c => c[0] > 10 && c[1] > 10);
+                drawConnectors(ctx, results.poseLandmarks, BODY_CONNECTIONS, {
+                    color: '#FFFFFF',
+                    lineWidth: 3
+                });
+
+                // 3. วาดจุดข้อต่อ (สีแดง)
                 drawLandmarks(ctx, results.poseLandmarks, {
-                    color: '#9fae9a',
+                    color: '#FF0000',
                     lineWidth: 2,
-                    radius: 4
+                    radius: 3
                 });
 
                 let ls = results.poseLandmarks[11];
@@ -252,7 +273,6 @@
                 alert("Camera Error: " + err.message);
             });
         });
-        // ==================================
 
         function startCalibration() {
             if (isButtonLocked) return;
