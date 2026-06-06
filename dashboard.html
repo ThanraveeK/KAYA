@@ -280,7 +280,7 @@
                 // --- 1. ตรวจสอบคอยื่น (Forward Head) ---
                 let head_shift = Math.abs(nose.y - shoulder_mid_y);
 
-                if (head_shift < 0.15) {
+                if (head_shift < 0.80) {
                     continuous_forward_head_sec += dt;
                     // หากคอยื่นต่อเนื่องสะสมถึง 3 วินาที จะแจ้งเตือนทันที (ปรับลดเพิ่มได้ตามต้องการ)
                     if (continuous_forward_head_sec >= 3.0) {
@@ -294,7 +294,7 @@
                 }
 
                 // --- 2. เช็คไหล่ห่อ (Rounded Shoulders) ---
-                if (curr_width < (baseline_shoulder_width * 0.95)) {
+                if (curr_width < (baseline_shoulder_width * 1.2)) {
                     continuous_rounded_sec += dt;
                     if (rounded_start_time === null) {
                         rounded_start_time = current_time;
