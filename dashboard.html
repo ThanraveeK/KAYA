@@ -189,7 +189,7 @@
         let last_frame_time = 0;
 
         // อ้างอิงเวลาตรวจจับจากไฟล์ Python ดั้งเดิม
-        const ROUNDED_TIME_LIMIT = 300.0; // 5 นาที
+        const ROUNDED_TIME_LIMIT = 90.0; // 5 นาที
         const STATIC_TIME_LIMIT = 2700.0; // 45 นาที (นั่งแช่นานเกินไป)
         const BAD_POSTURE_PENALTY_TIME = 300.0; // ตัดคะแนนทุกๆ 5 นาทีที่ไหล่ห่อ
 
@@ -255,219 +255,241 @@
         });
 
         pose.onResults((results) => {
-            if (!tracking_active || !baseline_shoulder_width) return;
+                    if (!tracking_active || !baseline_shoulder_width) return;
 
-            let current_time = Date.now() / 1000.0;
-            let dt = last_frame_time ? current_time - last_frame_time : 0;
-            last_frame_time = current_time;
-            if (dt > 1.0) dt = 0;
+                    let current_time = Date.now() / 1000.0;
+                    let dt = last_frame_time ? current_time - last_frame_time : 0;
+                    last_frame_time = current_time;
+                    if (dt > 1.0) dt = 0;
 
-            let localData = loadLocalData();
-            localData.active_time += dt;
+                    let localData = loadLocalData();
+                    localData.active_time += dt;
 
-            if (results.poseLandmarks) {
-                let ls = results.poseLandmarks[11];
-                let rs = results.poseLandmarks[12];
-                let curr_width = Math.abs(ls.x - rs.x);
+                    if (results.poseLandmarks) {
+                        let ls = results.poseLandmarks[11];
+                        let rs = results.poseLandmarks[12];
+                        let curr_width = Math.abs(ls.x - rs.x);
 
-                // --- 1. เช็คไหล่ห่อ (Rounded Shoulders) ---
-                if (curr_width < (baseline_shoulder_width * 0.95)) {
-                    continuous_bad_posture_sec += dt;
-                    if (rounded_start_time === null) {
-                        rounded_start_time = current_time;
-                    } else if ((current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT) {
-                        if (!onCooldown && Date.now() >= snoozeUntil) {
-                            fireRealNotification("Open Your Chest", "We noticed a slouch. Take a deep breath and roll your shoulders back.", "stretch.html");
+                        if (results.poseLandmarks) {
+                            let nose = results.poseLandmarks[0];
+                            let ls = results.poseLandmarks[11];
+                            let rs = results.poseLandmarks[12];
+                            let shoulder_mid_x = (ls.x + rs.x) / 2;
+                            let shoulder_mid_y = (ls.y + rs.y) / 2;
+
+                            // ตรวจสอบความแตกต่างระหว่างจมูกกับไหล่ (Forward Head)
+                            // ถ้าค่าระยะห่างแนวตั้งน้อยเกินไป หรือจมูกล้ำหน้าไหล่เกินเกณฑ์ที่กำหนด
+                            let head_shift = Math.abs(nose.y - shoulder_mid_y);
+
+                            // ถ้านั่งไหล่ห่อหรือคอยื่น (เกณฑ์นี้สามารถปรับค่าได้ตามความเหมาะสม)
+                            if (head_shift < 0.15) {
+                                continuous_bad_posture_sec += dt;
+                                if ((Date.now() / 1000.0) % 5 < 1) { // แจ้งเตือนไม่ถี่เกินไป
+                                    // เพิ่มเงื่อนไขแจ้งเตือน Forward Head
+                                    if (continuous_bad_posture_sec >= 10.0) { // ปรับเวลาตามที่คุณต้องการ
+                                        fireRealNotification("Forward Head Detected", "Your head is reaching forward. Please sit back and align your ears with your shoulders.", "stretch.html");
+                                    }
+                                }
+                            }
+
+                            // --- 1. เช็คไหล่ห่อ (Rounded Shoulders) ---
+                            if (curr_width < (baseline_shoulder_width * 0.95)) {
+                                continuous_bad_posture_sec += dt;
+                                if (rounded_start_time === null) {
+                                    rounded_start_time = current_time;
+                                } else if ((current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT) {
+                                    if (!onCooldown && Date.now() >= snoozeUntil) {
+                                        fireRealNotification("Open Your Chest", "We noticed a slouch. Take a deep breath and roll your shoulders back.", "stretch.html");
+                                        rounded_start_time = null;
+                                    }
+                                }
+
+                                if (continuous_bad_posture_sec >= BAD_POSTURE_PENALTY_TIME) {
+                                    localData.score = Math.max(0.0, localData.score - 2.0);
+                                    continuous_bad_posture_sec = 0.0;
+                                }
+                            } else {
+                                rounded_start_time = null;
+                                continuous_bad_posture_sec = 0.0;
+                            }
+
+                            // --- 2. เช็คนั่งแช่นาน 45 นาที (Static Posture) ---
+                            if (static_start_time === null) {
+                                static_start_time = current_time;
+                            } else if ((current_time - static_start_time) >= STATIC_TIME_LIMIT) {
+                                if (!onCooldown && Date.now() >= snoozeUntil) {
+                                    fireRealNotification("Mindful Break", "You've been focused for a while. Let's take a quick stretch.", "stretch.html");
+                                    static_start_time = null; // รีเซ็ตเวลาหลังจากเตือน
+                                }
+                            }
+
+                        } else {
+                            // ถ้าไม่เจอคนในกล้อง (ลุกเดินออกไป) ให้รีเซ็ตเวลาทั้งหมด
                             rounded_start_time = null;
+                            continuous_bad_posture_sec = 0.0;
+                            static_start_time = null;
+                        }
+
+                        saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
+
+                        // อัปเดต UI หน้าจอทุกๆ 1 วินาที
+                        if (Math.floor(current_time) % 2 === 0) {
+                            updateDashboardUI(localData.score, localData.active_time, localData.stretch, localData.snooze);
+                        }
+                    });
+
+                const bgCamera = new Camera(bgVideoElement, {
+                    onFrame: async() => {
+                        if (tracking_active) await pose.send({
+                            image: bgVideoElement
+                        });
+                    },
+                    width: 640,
+                    height: 480
+                });
+
+                window.addEventListener('load', async() => {
+                    if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
+                        Notification.requestPermission();
+                    }
+                    const localData = loadLocalData();
+                    updateDashboardUI(localData.score, localData.active_time, localData.stretch, localData.snooze);
+                });
+
+                async function toggleSession() {
+                    const btn = document.getElementById('sessionBtn');
+                    const isStarting = btn.innerText.trim() === 'Begin Session';
+
+                    if (isStarting) {
+                        const user = localStorage.getItem('currentUser') || 'guest';
+                        const b = localStorage.getItem('kaya_baseline_' + user);
+                        if (!b) {
+                            alert("Please calibrate your camera baseline first.");
+                            window.location.href = 'calibrate.html';
+                            return;
+                        }
+                        baseline_shoulder_width = parseFloat(b);
+
+                        try {
+                            // เปิดกล้อง Background
+                            const stream = await navigator.mediaDevices.getUserMedia({
+                                video: true
+                            });
+                            bgVideoElement.srcObject = stream;
+                            bgVideoElement.play();
+
+                            tracking_active = true;
+                            last_frame_time = Date.now() / 1000.0;
+                            static_start_time = null; // เริ่มจับเวลาใหม่
+
+                            setUIActive(true);
+                            snoozeUntil = 0;
+                            onCooldown = false;
+
+                            bgCamera.start();
+
+                            // ส่งสถานะบอก Backend
+                            fetch('https://thanravee-kaya-backend.hf.space/api/toggle_session', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    action: 'start'
+                                })
+                            }).catch(e => {});
+
+                        } catch (err) {
+                            alert("Please allow camera access to begin tracking.");
+                        }
+
+                    } else {
+                        tracking_active = false;
+                        setUIActive(false);
+
+                        // ปิดกล้องเพื่อประหยัดแบต
+                        const stream = bgVideoElement.srcObject;
+                        if (stream) {
+                            stream.getTracks().forEach(track => track.stop());
+                            bgVideoElement.srcObject = null;
+                        }
+
+                        fetch('https://thanravee-kaya-backend.hf.space/api/toggle_session', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                action: 'stop'
+                            })
+                        }).catch(e => {});
+                    }
+                }
+
+                function setUIActive(isActive) {
+                    const btn = document.getElementById('sessionBtn');
+                    const statusBadge = document.getElementById('aiStatusBadge');
+
+                    if (isActive) {
+                        btn.innerText = 'Stop Session';
+                        btn.classList.replace('bg-kaya-greenDark', 'bg-kaya-grayDark');
+                        if (statusBadge) {
+                            statusBadge.classList.replace('border-kaya-grayDark', 'border-kaya-greenLight');
+                            statusBadge.classList.replace('text-kaya-grayDark', 'text-kaya-greenDark');
+                            statusBadge.innerHTML = '<div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div> AI TRACKING';
+                        }
+                    } else {
+                        btn.innerText = 'Begin Session';
+                        btn.classList.replace('bg-kaya-grayDark', 'bg-kaya-greenDark');
+                        if (statusBadge) {
+                            statusBadge.classList.replace('border-kaya-greenLight', 'border-kaya-grayDark');
+                            statusBadge.classList.replace('text-kaya-greenDark', 'text-kaya-grayDark');
+                            statusBadge.innerHTML = '<div class="w-3 h-3 rounded-full bg-kaya-grayDark"></div> AI STANDBY';
                         }
                     }
+                }
 
-                    if (continuous_bad_posture_sec >= BAD_POSTURE_PENALTY_TIME) {
-                        localData.score = Math.max(0.0, localData.score - 2.0);
-                        continuous_bad_posture_sec = 0.0;
+                function fireRealNotification(title, body, url) {
+                    onCooldown = true;
+
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        const notification = new Notification("KAYA 🔔", {
+                            body: title + "\n" + body + "\n\n(คลิกเพื่อทำกายภาพ หรือ กดกากบาทเพื่อพักการแจ้งเตือน 5 นาที)",
+                            icon: "https://cdn-icons-png.flaticon.com/512/2950/2950322.png",
+                            requireInteraction: true
+                        });
+
+                        notification.onclick = function(event) {
+                            event.preventDefault();
+                            window.focus();
+                            window.location.href = url;
+                            notification.close();
+                        };
+
+                        notification.onclose = function() {
+                            snoozeUntil = Date.now() + (5 * 60 * 1000);
+                            onCooldown = false;
+                            let localData = loadLocalData();
+                            localData.snooze += 1;
+                            localData.score = Math.max(0.0, localData.score - 1.0);
+                            saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
+                        };
+
+                    } else {
+                        let userWantsToFix = confirm("KAYA 🔔 Alert!\n\n" + title + "\n" + body + "\n\nกด OK เพื่อทำกายภาพทันที\nกด Cancel เพื่อพักการแจ้งเตือน 5 นาที (Snooze)");
+
+                        if (userWantsToFix) {
+                            window.location.href = url;
+                        } else {
+                            snoozeUntil = Date.now() + (5 * 60 * 1000);
+                            onCooldown = false;
+                            let localData = loadLocalData();
+                            localData.snooze += 1;
+                            localData.score = Math.max(0.0, localData.score - 1.0);
+                            saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
+                        }
                     }
-                } else {
-                    rounded_start_time = null;
-                    continuous_bad_posture_sec = 0.0;
                 }
-
-                // --- 2. เช็คนั่งแช่นาน 45 นาที (Static Posture) ---
-                if (static_start_time === null) {
-                    static_start_time = current_time;
-                } else if ((current_time - static_start_time) >= STATIC_TIME_LIMIT) {
-                    if (!onCooldown && Date.now() >= snoozeUntil) {
-                        fireRealNotification("Mindful Break", "You've been focused for a while. Let's take a quick stretch.", "stretch.html");
-                        static_start_time = null; // รีเซ็ตเวลาหลังจากเตือน
-                    }
-                }
-
-            } else {
-                // ถ้าไม่เจอคนในกล้อง (ลุกเดินออกไป) ให้รีเซ็ตเวลาทั้งหมด
-                rounded_start_time = null;
-                continuous_bad_posture_sec = 0.0;
-                static_start_time = null;
-            }
-
-            saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
-
-            // อัปเดต UI หน้าจอทุกๆ 1 วินาที
-            if (Math.floor(current_time) % 2 === 0) {
-                updateDashboardUI(localData.score, localData.active_time, localData.stretch, localData.snooze);
-            }
-        });
-
-        const bgCamera = new Camera(bgVideoElement, {
-            onFrame: async() => {
-                if (tracking_active) await pose.send({
-                    image: bgVideoElement
-                });
-            },
-            width: 640,
-            height: 480
-        });
-
-        window.addEventListener('load', async() => {
-            if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
-                Notification.requestPermission();
-            }
-            const localData = loadLocalData();
-            updateDashboardUI(localData.score, localData.active_time, localData.stretch, localData.snooze);
-        });
-
-        async function toggleSession() {
-            const btn = document.getElementById('sessionBtn');
-            const isStarting = btn.innerText.trim() === 'Begin Session';
-
-            if (isStarting) {
-                const user = localStorage.getItem('currentUser') || 'guest';
-                const b = localStorage.getItem('kaya_baseline_' + user);
-                if (!b) {
-                    alert("Please calibrate your camera baseline first.");
-                    window.location.href = 'calibrate.html';
-                    return;
-                }
-                baseline_shoulder_width = parseFloat(b);
-
-                try {
-                    // เปิดกล้อง Background
-                    const stream = await navigator.mediaDevices.getUserMedia({
-                        video: true
-                    });
-                    bgVideoElement.srcObject = stream;
-                    bgVideoElement.play();
-
-                    tracking_active = true;
-                    last_frame_time = Date.now() / 1000.0;
-                    static_start_time = null; // เริ่มจับเวลาใหม่
-
-                    setUIActive(true);
-                    snoozeUntil = 0;
-                    onCooldown = false;
-
-                    bgCamera.start();
-
-                    // ส่งสถานะบอก Backend
-                    fetch('https://thanravee-kaya-backend.hf.space/api/toggle_session', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            action: 'start'
-                        })
-                    }).catch(e => {});
-
-                } catch (err) {
-                    alert("Please allow camera access to begin tracking.");
-                }
-
-            } else {
-                tracking_active = false;
-                setUIActive(false);
-
-                // ปิดกล้องเพื่อประหยัดแบต
-                const stream = bgVideoElement.srcObject;
-                if (stream) {
-                    stream.getTracks().forEach(track => track.stop());
-                    bgVideoElement.srcObject = null;
-                }
-
-                fetch('https://thanravee-kaya-backend.hf.space/api/toggle_session', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        action: 'stop'
-                    })
-                }).catch(e => {});
-            }
-        }
-
-        function setUIActive(isActive) {
-            const btn = document.getElementById('sessionBtn');
-            const statusBadge = document.getElementById('aiStatusBadge');
-
-            if (isActive) {
-                btn.innerText = 'Stop Session';
-                btn.classList.replace('bg-kaya-greenDark', 'bg-kaya-grayDark');
-                if (statusBadge) {
-                    statusBadge.classList.replace('border-kaya-grayDark', 'border-kaya-greenLight');
-                    statusBadge.classList.replace('text-kaya-grayDark', 'text-kaya-greenDark');
-                    statusBadge.innerHTML = '<div class="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div> AI TRACKING';
-                }
-            } else {
-                btn.innerText = 'Begin Session';
-                btn.classList.replace('bg-kaya-grayDark', 'bg-kaya-greenDark');
-                if (statusBadge) {
-                    statusBadge.classList.replace('border-kaya-greenLight', 'border-kaya-grayDark');
-                    statusBadge.classList.replace('text-kaya-greenDark', 'text-kaya-grayDark');
-                    statusBadge.innerHTML = '<div class="w-3 h-3 rounded-full bg-kaya-grayDark"></div> AI STANDBY';
-                }
-            }
-        }
-
-        function fireRealNotification(title, body, url) {
-            onCooldown = true;
-
-            if ("Notification" in window && Notification.permission === "granted") {
-                const notification = new Notification("KAYA 🔔", {
-                    body: title + "\n" + body + "\n\n(คลิกเพื่อทำกายภาพ หรือ กดกากบาทเพื่อพักการแจ้งเตือน 5 นาที)",
-                    icon: "https://cdn-icons-png.flaticon.com/512/2950/2950322.png",
-                    requireInteraction: true
-                });
-
-                notification.onclick = function(event) {
-                    event.preventDefault();
-                    window.focus();
-                    window.location.href = url;
-                    notification.close();
-                };
-
-                notification.onclose = function() {
-                    snoozeUntil = Date.now() + (5 * 60 * 1000);
-                    onCooldown = false;
-                    let localData = loadLocalData();
-                    localData.snooze += 1;
-                    localData.score = Math.max(0.0, localData.score - 1.0);
-                    saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
-                };
-
-            } else {
-                let userWantsToFix = confirm("KAYA 🔔 Alert!\n\n" + title + "\n" + body + "\n\nกด OK เพื่อทำกายภาพทันที\nกด Cancel เพื่อพักการแจ้งเตือน 5 นาที (Snooze)");
-
-                if (userWantsToFix) {
-                    window.location.href = url;
-                } else {
-                    snoozeUntil = Date.now() + (5 * 60 * 1000);
-                    onCooldown = false;
-                    let localData = loadLocalData();
-                    localData.snooze += 1;
-                    localData.score = Math.max(0.0, localData.score - 1.0);
-                    saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
-                }
-            }
-        }
     </script>
 </body>
 
