@@ -115,7 +115,7 @@
             </div>
         </div>
 
-        <video id="hiddenBackgroundVideo" autoplay playsinline muted class="hidden"></video>
+        <video id="hiddenBackgroundVideo" autoplay playsinline muted style="position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; left: -9999px;"></video>
 
         <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 mb-8 flex flex-col md:flex-row justify-between items-center border border-white">
             <div class="mb-6 md:mb-0">
@@ -147,7 +147,7 @@
             <div class="flex flex-col gap-6">
                 <div class="bg-white rounded-[2rem] p-8 shadow-xl shadow-kaya-greenDark/10 flex items-center gap-8 border border-white h-full">
                     <div class="w-16 h-16 rounded-full border-4 border-kaya-greenLight text-kaya-greenDark flex items-center justify-center shrink-0">
-                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin=\"round\" d=\"M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z\"></path></svg>
+                        <svg class="w-8 h-8" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                     </div>
                     <div>
                         <p id="activeTimeText" class="text-2xl font-bold text-kaya-greenDark mb-1">0 min</p>
@@ -184,23 +184,23 @@
 
         let baseline_shoulder_width = null;
         let rounded_start_time = null;
-        let static_start_time = null; // ตัวแปรสำหรับจับเวลานั่งแช่ 45 นาที
-        let continuous_bad_posture_sec = 0.0;
+        let static_start_time = null;
+
+        // แก้ไขตรงนี้: แยกตัวแปรเวลานั่งท่าไม่ดีออกจากกันเด็ดขาด
+        let continuous_rounded_sec = 0.0;
+        let continuous_forward_head_sec = 0.0;
         let last_frame_time = 0;
 
-        // อ้างอิงเวลาตรวจจับจากไฟล์ Python ดั้งเดิม
-        const ROUNDED_TIME_LIMIT = 1.0; // 5 นาที
-        const STATIC_TIME_LIMIT = 2700.0; // 45 นาที (นั่งแช่นานเกินไป)
-        const BAD_POSTURE_PENALTY_TIME = 300.0; // ตัดคะแนนทุกๆ 5 นาทีที่ไหล่ห่อ
+        const ROUNDED_TIME_LIMIT = 1.0; // 1 วินาทีสำหรับทดสอบความไวตามที่คุณตั้งไว้
+        const STATIC_TIME_LIMIT = 2700.0; // 45 นาที
+        const BAD_POSTURE_PENALTY_TIME = 300.0; // ตัดคะแนนทุกๆ 5 นาที
 
-        // ดึง Storage Key รายวัน
         function getStorageKey() {
             const user = localStorage.getItem('currentUser') || 'guest';
             const today = new Date();
             return `kaya_data_${user}_${today.getFullYear()}-${today.getMonth() + 1}-${today.getDate()}`;
         }
 
-        // โหลดและเซฟข้อมูล
         function loadLocalData() {
             const storageKey = getStorageKey();
             let data = JSON.parse(localStorage.getItem(storageKey));
@@ -242,13 +242,13 @@
             document.getElementById('snoozedText').innerText = `${snoozeCount} Times`;
         }
 
-        // ====== 🧠 Background AI Logic สำหรับเฝ้าระวัง ======
+        // ====== 🧠 Background AI Logic ======
         const bgVideoElement = document.getElementById('hiddenBackgroundVideo');
         const pose = new Pose({
             locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
         });
         pose.setOptions({
-            modelComplexity: 0, // ใช้ 0 เพื่อประหยัดพลังงานเครื่องระหว่างเปิดทิ้งไว้
+            modelComplexity: 0,
             smoothLandmarks: true,
             minDetectionConfidence: 0.5,
             minTrackingConfidence: 0.5
@@ -265,77 +265,78 @@
             let localData = loadLocalData();
             localData.active_time += dt;
 
-            if (results.poseLandmarks) {
+            // ปรับโครงสร้างตรวจสอบเงื่อนไขหลักชั้นเดียวให้คลีนขึ้น
+            if (results.poseLandmarks && results.poseLandmarks.length > 0) {
+                let nose = results.poseLandmarks[0];
                 let ls = results.poseLandmarks[11];
                 let rs = results.poseLandmarks[12];
+
+                if (!nose || !ls || !rs) return;
+
                 let curr_width = Math.abs(ls.x - rs.x);
+                let shoulder_mid_x = (ls.x + rs.x) / 2;
+                let shoulder_mid_y = (ls.y + rs.y) / 2;
 
-                if (results.poseLandmarks) {
-                    let nose = results.poseLandmarks[0];
-                    let ls = results.poseLandmarks[11];
-                    let rs = results.poseLandmarks[12];
-                    let shoulder_mid_x = (ls.x + rs.x) / 2;
-                    let shoulder_mid_y = (ls.y + rs.y) / 2;
+                // --- 1. ตรวจสอบคอยื่น (Forward Head) ---
+                let head_shift = Math.abs(nose.y - shoulder_mid_y);
 
-                    // ตรวจสอบความแตกต่างระหว่างจมูกกับไหล่ (Forward Head)
-                    // ถ้าค่าระยะห่างแนวตั้งน้อยเกินไป หรือจมูกล้ำหน้าไหล่เกินเกณฑ์ที่กำหนด
-                    let head_shift = Math.abs(nose.y - shoulder_mid_y);
-
-                    // ถ้านั่งไหล่ห่อหรือคอยื่น (เกณฑ์นี้สามารถปรับค่าได้ตามความเหมาะสม)
-                    if (head_shift < 0.15) {
-                        continuous_bad_posture_sec += dt;
-                        if ((Date.now() / 1000.0) % 5 < 1) { // แจ้งเตือนไม่ถี่เกินไป
-                            // เพิ่มเงื่อนไขแจ้งเตือน Forward Head
-                            if (continuous_bad_posture_sec >= 10.0) { // ปรับเวลาตามที่คุณต้องการ
-                                fireRealNotification("Forward Head Detected", "Your head is reaching forward. Please sit back and align your ears with your shoulders.", "stretch.html");
-                            }
-                        }
-                    }
-
-                    // --- 1. เช็คไหล่ห่อ (Rounded Shoulders) ---
-                    if (curr_width < (baseline_shoulder_width * 0.95)) {
-                        continuous_bad_posture_sec += dt;
-                        if (rounded_start_time === null) {
-                            rounded_start_time = current_time;
-                        } else if ((current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT) {
-                            if (!onCooldown && Date.now() >= snoozeUntil) {
-                                fireRealNotification("Open Your Chest", "We noticed a slouch. Take a deep breath and roll your shoulders back.", "stretch.html");
-                                rounded_start_time = null;
-                            }
-                        }
-
-                        if (continuous_bad_posture_sec >= BAD_POSTURE_PENALTY_TIME) {
-                            localData.score = Math.max(0.0, localData.score - 2.0);
-                            continuous_bad_posture_sec = 0.0;
-                        }
-                    } else {
-                        rounded_start_time = null;
-                        continuous_bad_posture_sec = 0.0;
-                    }
-
-                    // --- 2. เช็คนั่งแช่นาน 45 นาที (Static Posture) ---
-                    if (static_start_time === null) {
-                        static_start_time = current_time;
-                    } else if ((current_time - static_start_time) >= STATIC_TIME_LIMIT) {
+                if (head_shift < 0.15) {
+                    continuous_forward_head_sec += dt;
+                    // หากคอยื่นต่อเนื่องสะสมถึง 3 วินาที จะแจ้งเตือนทันที (ปรับลดเพิ่มได้ตามต้องการ)
+                    if (continuous_forward_head_sec >= 3.0) {
                         if (!onCooldown && Date.now() >= snoozeUntil) {
-                            fireRealNotification("Mindful Break", "You've been focused for a while. Let's take a quick stretch.", "stretch.html");
-                            static_start_time = null; // รีเซ็ตเวลาหลังจากเตือน
+                            fireRealNotification("Forward Head Detected", "Your head is reaching forward. Please sit back and align your ears with your shoulders.", "stretch.html");
+                            continuous_forward_head_sec = 0.0;
+                        }
+                    }
+                } else {
+                    continuous_forward_head_sec = 0.0;
+                }
+
+                // --- 2. เช็คไหล่ห่อ (Rounded Shoulders) ---
+                if (curr_width < (baseline_shoulder_width * 0.95)) {
+                    continuous_rounded_sec += dt;
+                    if (rounded_start_time === null) {
+                        rounded_start_time = current_time;
+                    } else if ((current_time - rounded_start_time) >= ROUNDED_TIME_LIMIT) {
+                        if (!onCooldown && Date.now() >= snoozeUntil) {
+                            fireRealNotification("Open Your Chest", "We noticed a slouch. Take a deep breath and roll your shoulders back.", "stretch.html");
+                            rounded_start_time = null;
                         }
                     }
 
+                    if (continuous_rounded_sec >= BAD_POSTURE_PENALTY_TIME) {
+                        localData.score = Math.max(0.0, localData.score - 2.0);
+                        continuous_rounded_sec = 0.0;
+                    }
                 } else {
-                    // ถ้าไม่เจอคนในกล้อง (ลุกเดินออกไป) ให้รีเซ็ตเวลาทั้งหมด
                     rounded_start_time = null;
-                    continuous_bad_posture_sec = 0.0;
-                    static_start_time = null;
+                    continuous_rounded_sec = 0.0;
                 }
 
-                saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
-
-                // อัปเดต UI หน้าจอทุกๆ 1 วินาที
-                if (Math.floor(current_time) % 2 === 0) {
-                    updateDashboardUI(localData.score, localData.active_time, localData.stretch, localData.snooze);
+                // --- 3. เช็คนั่งแช่นาน 45 นาที (Static Posture) ---
+                if (static_start_time === null) {
+                    static_start_time = current_time;
+                } else if ((current_time - static_start_time) >= STATIC_TIME_LIMIT) {
+                    if (!onCooldown && Date.now() >= snoozeUntil) {
+                        fireRealNotification("Mindful Break", "You've been focused for a while. Let's take a quick stretch.", "stretch.html");
+                        static_start_time = null;
+                    }
                 }
+
+            } else {
+                // ถ้าไม่เจอคนในกล้อง (ลุกเดินออกไป) ให้รีเซ็ตเวลาทิ้งทั้งหมด
+                rounded_start_time = null;
+                static_start_time = null;
+                continuous_rounded_sec = 0.0;
+                continuous_forward_head_sec = 0.0;
+            }
+
+            saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
+
+            // อัปเดต UI หน้าจอทุกๆ 2 วินาที
+            if (Math.floor(current_time) % 2 === 0) {
+                updateDashboardUI(localData.score, localData.active_time, localData.stretch, localData.snooze);
             }
         });
 
@@ -372,7 +373,6 @@
                 baseline_shoulder_width = parseFloat(b);
 
                 try {
-                    // เปิดกล้อง Background
                     const stream = await navigator.mediaDevices.getUserMedia({
                         video: true
                     });
@@ -381,7 +381,7 @@
 
                     tracking_active = true;
                     last_frame_time = Date.now() / 1000.0;
-                    static_start_time = null; // เริ่มจับเวลาใหม่
+                    static_start_time = null;
 
                     setUIActive(true);
                     snoozeUntil = 0;
@@ -389,7 +389,6 @@
 
                     bgCamera.start();
 
-                    // ส่งสถานะบอก Backend
                     fetch('https://thanravee-kaya-backend.hf.space/api/toggle_session', {
                         method: 'POST',
                         headers: {
@@ -408,7 +407,6 @@
                 tracking_active = false;
                 setUIActive(false);
 
-                // ปิดกล้องเพื่อประหยัดแบต
                 const stream = bgVideoElement.srcObject;
                 if (stream) {
                     stream.getTracks().forEach(track => track.stop());
@@ -475,6 +473,13 @@
                     localData.score = Math.max(0.0, localData.score - 1.0);
                     saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
                 };
+
+                // เพิ่มเซฟตี้: หากผ่านไป 10 วินาทีแล้วไม่มีการตอบสนอง ให้ปิดการแจ้งเตือนเองเพื่อป้องกันระบบล็อกค้าง
+                setTimeout(() => {
+                    if (onCooldown && snoozeUntil === 0) {
+                        notification.close();
+                    }
+                }, 10000);
 
             } else {
                 let userWantsToFix = confirm("KAYA 🔔 Alert!\n\n" + title + "\n" + body + "\n\nกด OK เพื่อทำกายภาพทันที\nกด Cancel เพื่อพักการแจ้งเตือน 5 นาที (Snooze)");
