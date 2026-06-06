@@ -184,12 +184,14 @@
 
         let baseline_shoulder_width = null;
         let rounded_start_time = null;
+        let static_start_time = null; // ตัวแปรสำหรับจับเวลานั่งแช่ 45 นาที
         let continuous_bad_posture_sec = 0.0;
         let last_frame_time = 0;
 
-        // อ้างอิงเวลาตรวจจับจากไฟล์ Python ล่าสุดของคุณ
-        const ROUNDED_TIME_LIMIT = 300.0;
-        const BAD_POSTURE_PENALTY_TIME = 300.0;
+        // อ้างอิงเวลาตรวจจับจากไฟล์ Python ดั้งเดิม
+        const ROUNDED_TIME_LIMIT = 300.0; // 5 นาที
+        const STATIC_TIME_LIMIT = 2700.0; // 45 นาที (นั่งแช่นานเกินไป)
+        const BAD_POSTURE_PENALTY_TIME = 300.0; // ตัดคะแนนทุกๆ 5 นาทีที่ไหล่ห่อ
 
         // ดึง Storage Key รายวัน
         function getStorageKey() {
@@ -268,6 +270,7 @@
                 let rs = results.poseLandmarks[12];
                 let curr_width = Math.abs(ls.x - rs.x);
 
+                // --- 1. เช็คไหล่ห่อ (Rounded Shoulders) ---
                 if (curr_width < (baseline_shoulder_width * 0.95)) {
                     continuous_bad_posture_sec += dt;
                     if (rounded_start_time === null) {
@@ -287,11 +290,27 @@
                     rounded_start_time = null;
                     continuous_bad_posture_sec = 0.0;
                 }
+
+                // --- 2. เช็คนั่งแช่นาน 45 นาที (Static Posture) ---
+                if (static_start_time === null) {
+                    static_start_time = current_time;
+                } else if ((current_time - static_start_time) >= STATIC_TIME_LIMIT) {
+                    if (!onCooldown && Date.now() >= snoozeUntil) {
+                        fireRealNotification("Mindful Break", "You've been focused for a while. Let's take a quick stretch.", "stretch.html");
+                        static_start_time = null; // รีเซ็ตเวลาหลังจากเตือน
+                    }
+                }
+
+            } else {
+                // ถ้าไม่เจอคนในกล้อง (ลุกเดินออกไป) ให้รีเซ็ตเวลาทั้งหมด
+                rounded_start_time = null;
+                continuous_bad_posture_sec = 0.0;
+                static_start_time = null;
             }
 
             saveLocalData(localData.score, localData.active_time, localData.stretch, localData.snooze);
 
-            // อัปเดต UI หน้าจอทุกๆ 1 วินาที เพื่อไม่ให้กระตุก
+            // อัปเดต UI หน้าจอทุกๆ 1 วินาที
             if (Math.floor(current_time) % 2 === 0) {
                 updateDashboardUI(localData.score, localData.active_time, localData.stretch, localData.snooze);
             }
@@ -339,6 +358,8 @@
 
                     tracking_active = true;
                     last_frame_time = Date.now() / 1000.0;
+                    static_start_time = null; // เริ่มจับเวลาใหม่
+
                     setUIActive(true);
                     snoozeUntil = 0;
                     onCooldown = false;
